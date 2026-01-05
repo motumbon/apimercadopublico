@@ -63,19 +63,20 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body;
     
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email y contraseña son requeridos' });
+      return res.status(400).json({ success: false, error: 'Email y contraseña son requeridos' });
     }
     
     const usuario = await autenticarUsuario(email, password);
     const token = jwt.sign({ userId: usuario.id }, JWT_SECRET, { expiresIn: '30d' });
     
     res.json({
+      success: true,
       message: 'Login exitoso',
       token,
       usuario
     });
   } catch (error) {
-    res.status(401).json({ error: error.message });
+    res.status(401).json({ success: false, error: error.message });
   }
 });
 
