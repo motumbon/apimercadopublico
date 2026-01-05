@@ -92,8 +92,9 @@ function App() {
   
   // Sincronización con Railway
   const [mostrarSync, setMostrarSync] = useState(false);
-  const [railwayUrl, setRailwayUrl] = useState(localStorage.getItem('railwayUrl') || '');
-  const [railwayToken, setRailwayToken] = useState(localStorage.getItem('railwayToken') || '');
+  const [railwayUrl, setRailwayUrl] = useState(localStorage.getItem('railwayUrl') || 'https://web-production-fe1d1.up.railway.app');
+  const [railwayEmail, setRailwayEmail] = useState(localStorage.getItem('railwayEmail') || '');
+  const [railwayPassword, setRailwayPassword] = useState('');
   const [sincronizando, setSincronizando] = useState(false);
 
   // Verificar si hay usuario guardado al cargar
@@ -225,8 +226,8 @@ function App() {
   
   // Sincronización con Railway
   async function handleSincronizarRailway() {
-    if (!railwayUrl || !railwayToken) {
-      setError('Configura la URL y token de Railway primero');
+    if (!railwayUrl || !railwayEmail || !railwayPassword) {
+      setError('Completa todos los campos');
       return;
     }
     
@@ -236,16 +237,31 @@ function App() {
     try {
       // Guardar configuración
       localStorage.setItem('railwayUrl', railwayUrl);
-      localStorage.setItem('railwayToken', railwayToken);
+      localStorage.setItem('railwayEmail', railwayEmail);
       
-      // Exportar datos locales
+      // 1. Hacer login en Railway para obtener token
+      const loginRes = await fetch(`${railwayUrl}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: railwayEmail, password: railwayPassword })
+      });
+      const loginData = await loginRes.json();
+      
+      if (!loginData.success) {
+        throw new Error(loginData.error || 'Error de autenticación en Railway');
+      }
+      
+      const railwayToken = loginData.token;
+      
+      // 2. Exportar datos locales
       const exportacion = await exportarDatos();
       
-      // Enviar a Railway
+      // 3. Enviar a Railway
       const resultado = await sincronizarConRailway(railwayUrl, railwayToken, exportacion.data);
       
       setMensaje(`✓ Sincronización exitosa: ${resultado.message}`);
       setMostrarSync(false);
+      setRailwayPassword('');
     } catch (err) {
       setError('Error sincronizando: ' + err.message);
     } finally {
@@ -680,17 +696,25 @@ function App() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Token de Railway</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Email de Railway</label>
                 <input
-                  type="password"
-                  value={railwayToken}
-                  onChange={(e) => setRailwayToken(e.target.value)}
-                  placeholder="Pega aquí tu token JWT de Railway"
+                  type="email"
+                  value={railwayEmail}
+                  onChange={(e) => setRailwayEmail(e.target.value)}
+                  placeholder="tu@email.com"
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
                 />
-                <p className="text-xs text-slate-500 mt-1">
-                  Inicia sesión en Railway, abre DevTools (F12) → Application → Local Storage → busca "token"
-                </p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Contraseña de Railway</label>
+                <input
+                  type="password"
+                  value={railwayPassword}
+                  onChange={(e) => setRailwayPassword(e.target.value)}
+                  placeholder="Tu contraseña de la cuenta en Railway"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                />
               </div>
             </div>
             
@@ -703,7 +727,7 @@ function App() {
               </button>
               <button
                 onClick={handleSincronizarRailway}
-                disabled={sincronizando || !railwayUrl || !railwayToken}
+                disabled={sincronizando || !railwayUrl || !railwayEmail || !railwayPassword}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {sincronizando ? (
