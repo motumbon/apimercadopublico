@@ -7,8 +7,9 @@ import bcrypt from 'bcryptjs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// En producción usar /data (volumen persistente en Railway) o /tmp como fallback
 const dbPath = process.env.NODE_ENV === 'production' 
-  ? '/tmp/licitaciones.db' 
+  ? (process.env.DATABASE_PATH || '/data/licitaciones.db')
   : path.join(__dirname, '../../licitaciones.db');
 
 let db = null;
@@ -60,6 +61,11 @@ async function getDatabase() {
 
 function saveDatabase() {
   if (db) {
+    // Asegurar que el directorio existe
+    const dir = path.dirname(dbPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
     const data = db.export();
     const buffer = Buffer.from(data);
     fs.writeFileSync(dbPath, buffer);
