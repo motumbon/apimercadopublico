@@ -159,15 +159,34 @@ router.post('/:codigo/detectar-oc', async (req, res) => {
     
     console.log(`[API] Detectando OC automáticamente para ${codigo}...`);
     
-    // Usar detección por API (funciona en cualquier entorno)
-    const { detectarOCAutomaticamente } = await import('../services/mercadoPublico.js');
-    const ordenes = await detectarOCAutomaticamente(codigo);
+    // Verificar si estamos en producción (Railway)
+    const isProduction = process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production';
+    
+    let ordenes = [];
+    
+    if (isProduction) {
+      // En producción: usar detección por API
+      console.log('[API] Modo producción: usando detección por API');
+      const { detectarOCAutomaticamente } = await import('../services/mercadoPublico.js');
+      ordenes = await detectarOCAutomaticamente(codigo);
+    } else {
+      // En local: usar scraper con ventana visible para navegación manual
+      console.log('[API] Modo local: abriendo navegador para navegación manual');
+      const codigosOC = await scrapeOrdenesManual(codigo, 120000); // 2 minutos
+      
+      if (codigosOC.length > 0) {
+        // Obtener detalles de cada OC usando la API
+        ordenes = await agregarOrdenesPorCodigos(codigosOC, codigo);
+      }
+    }
     
     if (ordenes.length === 0) {
       return res.json({ 
         success: true, 
         data: [],
-        message: 'No se encontraron órdenes de compra. Puedes agregarlas manualmente si conoces los códigos.'
+        message: isProduction 
+          ? 'No se encontraron OC automáticamente. Puedes agregarlas manualmente si conoces los códigos.'
+          : 'No se detectaron OC. Asegúrate de navegar a la sección "Órdenes de Compra" en la ventana del navegador.'
       });
     }
     
@@ -182,7 +201,7 @@ router.post('/:codigo/detectar-oc', async (req, res) => {
     res.json({ 
       success: true, 
       data: ordenes,
-      message: `${ordenes.length} órdenes de compra detectadas y agregadas automáticamente`
+      message: `${ordenes.length} órdenes de compra detectadas y agregadas`
     });
   } catch (error) {
     console.error('[API] Error en detección automática:', error);
