@@ -159,19 +159,28 @@ router.post('/:codigo/detectar-oc', async (req, res) => {
     
     console.log(`[API] Detectando OC automáticamente para ${codigo}...`);
     
-    // Verificar si estamos en producción (Railway) donde Playwright no funciona
+    // Verificar si estamos en producción (Railway)
     const isProduction = process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production';
+    const hasBrowserless = !!process.env.BROWSERLESS_API_KEY;
     
-    if (isProduction) {
-      // En producción, Playwright no está disponible
+    let codigosOC = [];
+    
+    if (isProduction && !hasBrowserless) {
+      // En producción sin Browserless, no está disponible
       return res.status(400).json({ 
         success: false, 
-        error: 'La detección automática no está disponible en el servidor. Por favor, agrega las OC manualmente usando sus códigos.'
+        error: 'La detección automática requiere configurar BROWSERLESS_API_KEY. Por favor, agrega las OC manualmente o configura Browserless.io'
       });
     }
     
-    // Ejecutar scraper con navegación manual (60 segundos)
-    const codigosOC = await scrapeOrdenesManual(codigo, 60000);
+    if (isProduction && hasBrowserless) {
+      // Usar scraper en la nube
+      const { scrapeOrdenesCloud } = await import('../services/scraperCloud.js');
+      codigosOC = await scrapeOrdenesCloud(codigo);
+    } else {
+      // Ejecutar scraper local con navegación manual (60 segundos)
+      codigosOC = await scrapeOrdenesManual(codigo, 60000);
+    }
     
     if (codigosOC.length === 0) {
       return res.json({ 
