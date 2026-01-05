@@ -154,91 +154,89 @@ export async function buscarOrdenesDeCompraPorLicitacion(codigoLicitacion, rutPr
 }
 
 /**
- * Detectar OC automáticamente buscando por organismo y filtrando por licitación
+ * Detectar OC automáticamente buscando por proveedores específicos y filtrando por licitación
+ * Proveedores: Therapía iv (66973) y Fresenius Kabi Chile Ltda. (44105)
  */
 export async function detectarOCAutomaticamente(codigoLicitacion) {
   console.log(`[API] Detectando OC para licitación ${codigoLicitacion}`);
   
-  // Primero obtener info de la licitación para saber el organismo
-  const licitacionInfo = await buscarLicitacion(codigoLicitacion);
-  if (!licitacionInfo) {
-    throw new Error('No se pudo obtener información de la licitación');
-  }
-  
   const ordenesEncontradas = [];
-  const prefijo = codigoLicitacion.split('-').slice(0, 2).join('-'); // Ej: "4309-76"
   
-  // Buscar OC por fechas recientes (últimos 12 meses)
-  const fechaHoy = new Date();
-  const mesesAtras = 12;
+  // Proveedores a buscar
+  const proveedores = [
+    { codigo: '66973', nombre: 'Therapía iv' },
+    { codigo: '44105', nombre: 'Fresenius Kabi Chile Ltda.' }
+  ];
   
-  console.log(`[API] Buscando OC con prefijo ${prefijo} en los últimos ${mesesAtras} meses...`);
+  // Años a buscar (OC terminan en SE + año, ej: SE25)
+  const añoActual = new Date().getFullYear();
+  const años = [añoActual, añoActual - 1]; // Año actual y anterior
   
-  for (let i = 0; i < mesesAtras; i++) {
-    const fecha = new Date(fechaHoy);
-    fecha.setMonth(fecha.getMonth() - i);
+  console.log(`[API] Buscando OC de proveedores: ${proveedores.map(p => p.nombre).join(', ')}`);
+  console.log(`[API] Filtrando por licitación: ${codigoLicitacion}`);
+  
+  for (const proveedor of proveedores) {
+    console.log(`[API] Buscando OC del proveedor ${proveedor.nombre} (${proveedor.codigo})...`);
     
-    // Buscar varios días del mes
-    for (let dia = 1; dia <= 28; dia += 7) {
-      fecha.setDate(dia);
-      const fechaStr = `${fecha.getDate().toString().padStart(2, '0')}${(fecha.getMonth() + 1).toString().padStart(2, '0')}${fecha.getFullYear()}`;
-      
-      try {
-        const url = `${API_BASE}/ordenesdecompra.json?fecha=${fechaStr}&estado=todos&ticket=${TICKET}`;
-        const data = await httpsGet(url);
-        
-        if (data.Listado && data.Listado.length > 0) {
-          for (const orden of data.Listado) {
-            // Verificar si la OC pertenece a esta licitación
-            const codigoOC = orden.Codigo || '';
-            const licitacionOC = orden.Licitacion || '';
+    for (const año of años) {
+      // Buscar en varios meses del año
+      for (let mes = 1; mes <= 12; mes++) {
+        // Buscar en diferentes días del mes
+        for (let dia = 1; dia <= 28; dia += 14) {
+          const fechaStr = `${dia.toString().padStart(2, '0')}${mes.toString().padStart(2, '0')}${año}`;
+          
+          try {
+            const url = `${API_BASE}/ordenesdecompra.json?fecha=${fechaStr}&CodigoProveedor=${proveedor.codigo}&ticket=${TICKET}`;
+            const data = await httpsGet(url);
             
-            if (licitacionOC === codigoLicitacion || codigoOC.startsWith(prefijo)) {
-              // Evitar duplicados
-              if (!ordenesEncontradas.find(o => o.codigo === codigoOC)) {
-                // Obtener detalles completos de la OC
-                try {
-                  const detalleUrl = `${API_BASE}/ordenesdecompra.json?codigo=${encodeURIComponent(codigoOC)}&ticket=${TICKET}`;
-                  const detalleData = await httpsGet(detalleUrl);
-                  
-                  if (detalleData.Listado && detalleData.Listado.length > 0) {
-                    const detalle = detalleData.Listado[0];
-                    ordenesEncontradas.push({
-                      codigo: detalle.Codigo,
-                      nombre: detalle.Nombre,
-                      estado: ESTADOS_ORDEN[detalle.CodigoEstado] || detalle.Estado || 'Desconocido',
-                      estado_codigo: detalle.CodigoEstado,
-                      proveedor: detalle.Proveedor?.Nombre || '',
-                      proveedor_rut: detalle.Proveedor?.RutProveedor || '',
-                      monto: detalle.Total || 0,
-                      moneda: detalle.TipoMoneda || 'CLP',
-                      fecha_envio: detalle.Fechas?.FechaEnvio || '',
-                      fecha_aceptacion: detalle.Fechas?.FechaAceptacion || '',
-                      licitacion_codigo: detalle.Licitacion || codigoLicitacion
-                    });
-                    console.log(`[API] ✓ OC encontrada: ${codigoOC}`);
+            if (data.Listado && data.Listado.length > 0) {
+              for (const orden of data.Listado) {
+                const codigoOC = orden.Codigo || '';
+                const licitacionOC = orden.Licitacion || '';
+                
+                // Filtrar SOLO por licitación exacta
+                if (licitacionOC === codigoLicitacion) {
+                  // Evitar duplicados
+                  if (!ordenesEncontradas.find(o => o.codigo === codigoOC)) {
+                    // Obtener detalles completos
+                    try {
+                      const detalleUrl = `${API_BASE}/ordenesdecompra.json?codigo=${encodeURIComponent(codigoOC)}&ticket=${TICKET}`;
+                      const detalleData = await httpsGet(detalleUrl);
+                      
+                      if (detalleData.Listado && detalleData.Listado.length > 0) {
+                        const detalle = detalleData.Listado[0];
+                        ordenesEncontradas.push({
+                          codigo: detalle.Codigo,
+                          nombre: detalle.Nombre,
+                          estado: ESTADOS_ORDEN[detalle.CodigoEstado] || detalle.Estado || 'Desconocido',
+                          estado_codigo: detalle.CodigoEstado,
+                          proveedor: detalle.Proveedor?.Nombre || proveedor.nombre,
+                          proveedor_rut: detalle.Proveedor?.RutProveedor || '',
+                          monto: detalle.Total || 0,
+                          moneda: detalle.TipoMoneda || 'CLP',
+                          fecha_envio: detalle.Fechas?.FechaEnvio || '',
+                          fecha_aceptacion: detalle.Fechas?.FechaAceptacion || '',
+                          licitacion_codigo: detalle.Licitacion || codigoLicitacion
+                        });
+                        console.log(`[API] ✓ OC encontrada: ${codigoOC} (${proveedor.nombre})`);
+                      }
+                    } catch (e) {
+                      console.log(`[API] Error obteniendo detalle de ${codigoOC}`);
+                    }
                   }
-                } catch (e) {
-                  console.log(`[API] Error obteniendo detalle de ${codigoOC}`);
                 }
               }
             }
+            
+            await sleep(150); // Pausa para no saturar API
+            
+          } catch (error) {
+            if (error.message?.includes('rate') || error.message?.includes('limit')) {
+              console.log('[API] Rate limited, esperando 5s...');
+              await sleep(5000);
+            }
           }
         }
-        
-        await sleep(200); // Pausa para no saturar API
-        
-      } catch (error) {
-        if (error.message?.includes('rate') || error.message?.includes('limit')) {
-          console.log('[API] Rate limited, esperando...');
-          await sleep(5000);
-        }
-      }
-      
-      // Si encontramos suficientes, retornar
-      if (ordenesEncontradas.length >= 50) {
-        console.log(`[API] Total OC detectadas: ${ordenesEncontradas.length}`);
-        return ordenesEncontradas;
       }
     }
   }
