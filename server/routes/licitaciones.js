@@ -159,41 +159,19 @@ router.post('/:codigo/detectar-oc', async (req, res) => {
     
     console.log(`[API] Detectando OC automáticamente para ${codigo}...`);
     
-    // Verificar si estamos en producción (Railway)
-    const isProduction = process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production';
-    const hasBrowserless = !!process.env.BROWSERLESS_API_KEY;
+    // Usar detección por API (funciona en cualquier entorno)
+    const { detectarOCAutomaticamente } = await import('../services/mercadoPublico.js');
+    const ordenes = await detectarOCAutomaticamente(codigo);
     
-    let codigosOC = [];
-    
-    if (isProduction && !hasBrowserless) {
-      // En producción sin Browserless, no está disponible
-      return res.status(400).json({ 
-        success: false, 
-        error: 'La detección automática requiere configurar BROWSERLESS_API_KEY. Por favor, agrega las OC manualmente o configura Browserless.io'
-      });
-    }
-    
-    if (isProduction && hasBrowserless) {
-      // Usar scraper en la nube
-      const { scrapeOrdenesCloud } = await import('../services/scraperCloud.js');
-      codigosOC = await scrapeOrdenesCloud(codigo);
-    } else {
-      // Ejecutar scraper local con navegación manual (60 segundos)
-      codigosOC = await scrapeOrdenesManual(codigo, 60000);
-    }
-    
-    if (codigosOC.length === 0) {
+    if (ordenes.length === 0) {
       return res.json({ 
         success: true, 
         data: [],
-        message: 'No se encontraron órdenes de compra asociadas'
+        message: 'No se encontraron órdenes de compra. Puedes agregarlas manualmente si conoces los códigos.'
       });
     }
     
-    console.log(`[API] ${codigosOC.length} OC detectadas, obteniendo detalles...`);
-    
-    // Obtener detalles de cada OC usando la API
-    const ordenes = await agregarOrdenesPorCodigos(codigosOC, codigo);
+    console.log(`[API] ${ordenes.length} OC detectadas, guardando...`);
     
     // Guardar en la base de datos
     const { guardarOrdenCompra } = await import('../db/database.js');
