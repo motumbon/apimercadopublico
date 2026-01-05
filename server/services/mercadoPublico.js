@@ -168,74 +168,86 @@ export async function detectarOCAutomaticamente(codigoLicitacion) {
     { codigo: '44105', nombre: 'Fresenius Kabi Chile Ltda.' }
   ];
   
-  // Años a buscar (OC terminan en SE + año, ej: SE25)
-  const añoActual = new Date().getFullYear();
-  const años = [añoActual, añoActual - 1]; // Año actual y anterior
+  // Buscar solo en los últimos 6 meses para reducir llamadas
+  const hoy = new Date();
+  const fechasABuscar = [];
+  
+  for (let i = 0; i < 6; i++) {
+    const fecha = new Date(hoy);
+    fecha.setMonth(fecha.getMonth() - i);
+    // Solo buscar el día 1 y 15 de cada mes
+    fechasABuscar.push(new Date(fecha.getFullYear(), fecha.getMonth(), 1));
+    fechasABuscar.push(new Date(fecha.getFullYear(), fecha.getMonth(), 15));
+  }
   
   console.log(`[API] Buscando OC de proveedores: ${proveedores.map(p => p.nombre).join(', ')}`);
   console.log(`[API] Filtrando por licitación: ${codigoLicitacion}`);
+  console.log(`[API] Revisando ${fechasABuscar.length} fechas por proveedor...`);
   
   for (const proveedor of proveedores) {
-    console.log(`[API] Buscando OC del proveedor ${proveedor.nombre} (${proveedor.codigo})...`);
+    console.log(`[API] Proveedor: ${proveedor.nombre} (${proveedor.codigo})`);
     
-    for (const año of años) {
-      // Buscar en varios meses del año
-      for (let mes = 1; mes <= 12; mes++) {
-        // Buscar en diferentes días del mes
-        for (let dia = 1; dia <= 28; dia += 14) {
-          const fechaStr = `${dia.toString().padStart(2, '0')}${mes.toString().padStart(2, '0')}${año}`;
+    for (const fecha of fechasABuscar) {
+      // Formato ddmmaaaa
+      const fechaStr = `${fecha.getDate().toString().padStart(2, '0')}${(fecha.getMonth() + 1).toString().padStart(2, '0')}${fecha.getFullYear()}`;
+      
+      try {
+        // Pausa ANTES de cada llamada para evitar rate limit
+        await sleep(1000);
+        
+        const url = `${API_BASE}/ordenesdecompra.json?fecha=${fechaStr}&CodigoProveedor=${proveedor.codigo}&ticket=${TICKET}`;
+        console.log(`[API] Buscando fecha ${fechaStr}...`);
+        
+        const data = await httpsGet(url);
+        
+        if (data.Listado && data.Listado.length > 0) {
+          console.log(`[API] ${data.Listado.length} OC encontradas en ${fechaStr}`);
           
-          try {
-            const url = `${API_BASE}/ordenesdecompra.json?fecha=${fechaStr}&CodigoProveedor=${proveedor.codigo}&ticket=${TICKET}`;
-            const data = await httpsGet(url);
+          for (const orden of data.Listado) {
+            const codigoOC = orden.Codigo || '';
+            const licitacionOC = orden.Licitacion || '';
             
-            if (data.Listado && data.Listado.length > 0) {
-              for (const orden of data.Listado) {
-                const codigoOC = orden.Codigo || '';
-                const licitacionOC = orden.Licitacion || '';
+            // Filtrar SOLO por licitación exacta
+            if (licitacionOC === codigoLicitacion) {
+              // Evitar duplicados
+              if (!ordenesEncontradas.find(o => o.codigo === codigoOC)) {
+                await sleep(500); // Pausa antes de obtener detalle
                 
-                // Filtrar SOLO por licitación exacta
-                if (licitacionOC === codigoLicitacion) {
-                  // Evitar duplicados
-                  if (!ordenesEncontradas.find(o => o.codigo === codigoOC)) {
-                    // Obtener detalles completos
-                    try {
-                      const detalleUrl = `${API_BASE}/ordenesdecompra.json?codigo=${encodeURIComponent(codigoOC)}&ticket=${TICKET}`;
-                      const detalleData = await httpsGet(detalleUrl);
-                      
-                      if (detalleData.Listado && detalleData.Listado.length > 0) {
-                        const detalle = detalleData.Listado[0];
-                        ordenesEncontradas.push({
-                          codigo: detalle.Codigo,
-                          nombre: detalle.Nombre,
-                          estado: ESTADOS_ORDEN[detalle.CodigoEstado] || detalle.Estado || 'Desconocido',
-                          estado_codigo: detalle.CodigoEstado,
-                          proveedor: detalle.Proveedor?.Nombre || proveedor.nombre,
-                          proveedor_rut: detalle.Proveedor?.RutProveedor || '',
-                          monto: detalle.Total || 0,
-                          moneda: detalle.TipoMoneda || 'CLP',
-                          fecha_envio: detalle.Fechas?.FechaEnvio || '',
-                          fecha_aceptacion: detalle.Fechas?.FechaAceptacion || '',
-                          licitacion_codigo: detalle.Licitacion || codigoLicitacion
-                        });
-                        console.log(`[API] ✓ OC encontrada: ${codigoOC} (${proveedor.nombre})`);
-                      }
-                    } catch (e) {
-                      console.log(`[API] Error obteniendo detalle de ${codigoOC}`);
-                    }
+                try {
+                  const detalleUrl = `${API_BASE}/ordenesdecompra.json?codigo=${encodeURIComponent(codigoOC)}&ticket=${TICKET}`;
+                  const detalleData = await httpsGet(detalleUrl);
+                  
+                  if (detalleData.Listado && detalleData.Listado.length > 0) {
+                    const detalle = detalleData.Listado[0];
+                    ordenesEncontradas.push({
+                      codigo: detalle.Codigo,
+                      nombre: detalle.Nombre,
+                      estado: ESTADOS_ORDEN[detalle.CodigoEstado] || detalle.Estado || 'Desconocido',
+                      estado_codigo: detalle.CodigoEstado,
+                      proveedor: detalle.Proveedor?.Nombre || proveedor.nombre,
+                      proveedor_rut: detalle.Proveedor?.RutProveedor || '',
+                      monto: detalle.Total || 0,
+                      moneda: detalle.TipoMoneda || 'CLP',
+                      fecha_envio: detalle.Fechas?.FechaEnvio || '',
+                      fecha_aceptacion: detalle.Fechas?.FechaAceptacion || '',
+                      licitacion_codigo: detalle.Licitacion || codigoLicitacion
+                    });
+                    console.log(`[API] ✓ OC encontrada: ${codigoOC} (${proveedor.nombre})`);
                   }
+                } catch (e) {
+                  console.log(`[API] Error obteniendo detalle de ${codigoOC}: ${e.message}`);
                 }
               }
             }
-            
-            await sleep(150); // Pausa para no saturar API
-            
-          } catch (error) {
-            if (error.message?.includes('rate') || error.message?.includes('limit')) {
-              console.log('[API] Rate limited, esperando 5s...');
-              await sleep(5000);
-            }
           }
+        }
+        
+      } catch (error) {
+        console.log(`[API] Error en fecha ${fechaStr}: ${error.message}`);
+        // Si hay rate limit, esperar más tiempo
+        if (error.message?.includes('simultáneas') || error.message?.includes('rate') || error.message?.includes('10500')) {
+          console.log('[API] Rate limited, esperando 10s...');
+          await sleep(10000);
         }
       }
     }
