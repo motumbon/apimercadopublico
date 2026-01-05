@@ -344,4 +344,87 @@ router.get('/:codigo/saldo', async (req, res) => {
   }
 });
 
+// ========== SINCRONIZACIÓN LOCAL -> RAILWAY ==========
+
+// Exportar todos los datos del usuario (para enviar a Railway)
+router.get('/sync/exportar', async (req, res) => {
+  try {
+    const licitaciones = await obtenerLicitaciones(req.userId);
+    const datos = [];
+    
+    for (const lic of licitaciones) {
+      const ordenes = await obtenerOrdenesDeCompra(lic.codigo);
+      datos.push({
+        licitacion: lic,
+        ordenes: ordenes
+      });
+    }
+    
+    res.json({ 
+      success: true, 
+      data: datos,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Importar datos desde otra instancia (recibir de local)
+router.post('/sync/importar', async (req, res) => {
+  try {
+    const { datos } = req.body;
+    
+    if (!datos || !Array.isArray(datos)) {
+      return res.status(400).json({ success: false, error: 'Datos inválidos' });
+    }
+    
+    const { guardarLicitacion, guardarOrdenCompra } = await import('../db/database.js');
+    
+    let licitacionesImportadas = 0;
+    let ordenesImportadas = 0;
+    
+    for (const item of datos) {
+      const { licitacion, ordenes } = item;
+      
+      if (licitacion) {
+        await guardarLicitacion({
+          codigo: licitacion.codigo,
+          nombre: licitacion.nombre,
+          estado: licitacion.estado,
+          estado_codigo: licitacion.estado_codigo,
+          fecha_cierre: licitacion.fecha_cierre,
+          organismo: licitacion.organismo,
+          monto_estimado: licitacion.monto_estimado
+        }, req.userId);
+        licitacionesImportadas++;
+        
+        // Actualizar datos adicionales si existen
+        if (licitacion.institucion_id || licitacion.linea || licitacion.monto_total_licitacion) {
+          await actualizarLicitacionInstitucion(licitacion.codigo, licitacion.institucion_id, licitacion.linea, req.userId);
+          await actualizarDatosLicitacion(licitacion.codigo, licitacion.monto_total_licitacion, licitacion.fecha_vencimiento, req.userId);
+        }
+      }
+      
+      if (ordenes && Array.isArray(ordenes)) {
+        for (const orden of ordenes) {
+          await guardarOrdenCompra({
+            ...orden,
+            licitacion_codigo: licitacion.codigo
+          });
+          ordenesImportadas++;
+        }
+      }
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `Importadas ${licitacionesImportadas} licitaciones y ${ordenesImportadas} órdenes de compra`
+    });
+  } catch (error) {
+    console.error('[SYNC] Error importando:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 export default router;

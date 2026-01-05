@@ -301,3 +301,42 @@ export async function obtenerSaldoLicitacion(codigo) {
   if (!data.success) throw new Error(data.error);
   return data.data;
 }
+
+// ========== SINCRONIZACIÓN LOCAL <-> RAILWAY ==========
+
+// Exportar datos locales
+export async function exportarDatos() {
+  const res = await fetch(`${API_BASE}/licitaciones/sync/exportar`, {
+    headers: authHeaders()
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error);
+  return data;
+}
+
+// Sincronizar datos locales a Railway
+export async function sincronizarConRailway(railwayUrl, token, datos) {
+  const res = await fetch(`${railwayUrl}/api/licitaciones/sync/importar`, {
+    method: 'POST',
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({ datos })
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error);
+  return data;
+}
+
+// Importar datos (recibir de otra instancia)
+export async function importarDatos(datos) {
+  const res = await fetch(`${API_BASE}/licitaciones/sync/importar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ datos })
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error);
+  return data;
+}

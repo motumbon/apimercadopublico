@@ -42,7 +42,9 @@ import {
   setStoredUser,
   removeStoredUser,
   cambiarPassword,
-  eliminarCuenta
+  eliminarCuenta,
+  exportarDatos,
+  sincronizarConRailway
 } from './services/api';
 
 function App() {
@@ -87,6 +89,12 @@ function App() {
   const [montoTotalEdit, setMontoTotalEdit] = useState('');
   const [fechaVencimientoEdit, setFechaVencimientoEdit] = useState('');
   const [saldosLicitaciones, setSaldosLicitaciones] = useState({});
+  
+  // Sincronización con Railway
+  const [mostrarSync, setMostrarSync] = useState(false);
+  const [railwayUrl, setRailwayUrl] = useState(localStorage.getItem('railwayUrl') || '');
+  const [railwayToken, setRailwayToken] = useState(localStorage.getItem('railwayToken') || '');
+  const [sincronizando, setSincronizando] = useState(false);
 
   // Verificar si hay usuario guardado al cargar
   useEffect(() => {
@@ -212,6 +220,36 @@ function App() {
       setMensaje('Cuenta eliminada correctamente');
     } catch (err) {
       setError(err.message);
+    }
+  }
+  
+  // Sincronización con Railway
+  async function handleSincronizarRailway() {
+    if (!railwayUrl || !railwayToken) {
+      setError('Configura la URL y token de Railway primero');
+      return;
+    }
+    
+    setSincronizando(true);
+    setError(null);
+    
+    try {
+      // Guardar configuración
+      localStorage.setItem('railwayUrl', railwayUrl);
+      localStorage.setItem('railwayToken', railwayToken);
+      
+      // Exportar datos locales
+      const exportacion = await exportarDatos();
+      
+      // Enviar a Railway
+      const resultado = await sincronizarConRailway(railwayUrl, railwayToken, exportacion.data);
+      
+      setMensaje(`✓ Sincronización exitosa: ${resultado.message}`);
+      setMostrarSync(false);
+    } catch (err) {
+      setError('Error sincronizando: ' + err.message);
+    } finally {
+      setSincronizando(false);
     }
   }
   
@@ -590,6 +628,13 @@ function App() {
             </div>
             <div className="flex items-center gap-3">
               <button
+                onClick={() => setMostrarSync(true)}
+                className="flex items-center gap-2 px-3 py-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg text-sm font-medium"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Sincronizar
+              </button>
+              <button
                 onClick={() => { setVistaAuth('perfil'); setError(null); setMensaje(null); }}
                 className="flex items-center gap-2 px-3 py-2 text-slate-600 hover:bg-slate-100 rounded-lg"
               >
@@ -606,6 +651,77 @@ function App() {
           </div>
         </div>
       </header>
+
+      {/* Modal de Sincronización */}
+      {mostrarSync && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold">Sincronizar con Railway</h2>
+              <button onClick={() => setMostrarSync(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <p className="text-sm text-slate-600 mb-4">
+              Envía los datos de tu aplicación local a Railway para que estén disponibles online.
+            </p>
+            
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">URL de Railway</label>
+                <input
+                  type="url"
+                  value={railwayUrl}
+                  onChange={(e) => setRailwayUrl(e.target.value)}
+                  placeholder="https://tu-app.railway.app"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Token de Railway</label>
+                <input
+                  type="password"
+                  value={railwayToken}
+                  onChange={(e) => setRailwayToken(e.target.value)}
+                  placeholder="Pega aquí tu token JWT de Railway"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Inicia sesión en Railway, abre DevTools (F12) → Application → Local Storage → busca "token"
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setMostrarSync(false)}
+                className="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSincronizarRailway}
+                disabled={sincronizando || !railwayUrl || !railwayToken}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {sincronizando ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Sincronizando...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    Sincronizar
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Mensajes */}
