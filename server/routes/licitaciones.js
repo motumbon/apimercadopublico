@@ -159,6 +159,17 @@ router.post('/:codigo/detectar-oc', async (req, res) => {
     
     console.log(`[API] Detectando OC automáticamente para ${codigo}...`);
     
+    // Verificar si estamos en producción (Railway) donde Playwright no funciona
+    const isProduction = process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production';
+    
+    if (isProduction) {
+      // En producción, Playwright no está disponible
+      return res.status(400).json({ 
+        success: false, 
+        error: 'La detección automática no está disponible en el servidor. Por favor, agrega las OC manualmente usando sus códigos.'
+      });
+    }
+    
     // Ejecutar scraper con navegación manual (60 segundos)
     const codigosOC = await scrapeOrdenesManual(codigo, 60000);
     
@@ -188,6 +199,15 @@ router.post('/:codigo/detectar-oc', async (req, res) => {
     });
   } catch (error) {
     console.error('[API] Error en detección automática:', error);
+    
+    // Mensaje más amigable si es error de Playwright
+    if (error.message && error.message.includes('Executable doesn\'t exist')) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'La detección automática no está disponible. Por favor, agrega las OC manualmente.'
+      });
+    }
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
