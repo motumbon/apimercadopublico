@@ -14,9 +14,9 @@ console.log('[CONFIG] Ticket API:', TICKET.substring(0, 8) + '...');
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Cliente axios con timeout largo
+// Cliente axios con timeout moderado
 const apiClient = axios.create({
-  timeout: 120000, // 2 minutos
+  timeout: 45000, // 45 segundos
   headers: {
     'Accept': 'application/json',
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
@@ -419,15 +419,11 @@ export async function actualizarTodasLasLicitaciones() {
 }
 
 /**
- * Buscar OC emitidas en una fecha específica por los proveedores Therapía iv y Fresenius Kabi
- * y filtrar las que pertenecen a licitaciones guardadas en la aplicación
+ * Buscar OC recientes por estado (Aceptada/Enviada) de Therapía iv y Fresenius Kabi
+ * Filtra las que pertenecen a licitaciones guardadas y no están ya en la BD
  */
-export async function buscarNuevasOCDelDia(fecha = null) {
-  // Si no se especifica fecha, usar el día anterior
-  const fechaBusqueda = fecha || new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const fechaStr = `${fechaBusqueda.getDate().toString().padStart(2, '0')}${(fechaBusqueda.getMonth() + 1).toString().padStart(2, '0')}${fechaBusqueda.getFullYear()}`;
-  
-  console.log(`[AUTO-OC] Buscando OC emitidas el ${fechaStr}...`);
+export async function buscarNuevasOCDelDia() {
+  console.log(`[AUTO-OC] Buscando OC recientes por estado...`);
   
   // Proveedores a buscar
   const proveedores = [
@@ -435,53 +431,87 @@ export async function buscarNuevasOCDelDia(fecha = null) {
     { codigo: '44105', nombre: 'Fresenius Kabi Chile Ltda.' }
   ];
   
+  // Estados a buscar: Aceptada (6) y Enviada (4)
+  const estados = ['aceptada', 'enviada'];
+  
   // Obtener todas las licitaciones guardadas (de todos los usuarios)
   const licitacionesGuardadas = await obtenerLicitaciones();
   const codigosLicitaciones = new Set(licitacionesGuardadas.map(l => l.codigo));
   
   console.log(`[AUTO-OC] Licitaciones en BD: ${codigosLicitaciones.size}`);
+  if (codigosLicitaciones.size === 0) {
+    console.log(`[AUTO-OC] No hay licitaciones guardadas, terminando.`);
+    return [];
+  }
   
   const ordenesEncontradas = [];
+  const ocProcesadas = new Set();
   
-  for (const proveedor of proveedores) {
-    console.log(`[AUTO-OC] Buscando OC del proveedor ${proveedor.nombre}...`);
+  for (const estado of estados) {
+    console.log(`[AUTO-OC] Buscando OC con estado: ${estado}...`);
     
-    try {
-      await sleep(1000); // Pausa para evitar rate limit
+    for (const proveedor of proveedores) {
+      console.log(`[AUTO-OC] Proveedor: ${proveedor.nombre}...`);
       
-      const url = `${API_BASE}/ordenesdecompra.json?fecha=${fechaStr}&CodigoProveedor=${proveedor.codigo}&ticket=${TICKET}`;
-      const data = await httpsGet(url);
-      
-      if (data.Listado && data.Listado.length > 0) {
-        console.log(`[AUTO-OC] ${data.Listado.length} OC encontradas para ${proveedor.nombre}`);
+      try {
+        await sleep(1000);
         
-        for (const orden of data.Listado) {
-          // Necesitamos obtener el detalle para ver el CodigoLicitacion
-          await sleep(500);
-          try {
-            const detalleUrl = `${API_BASE}/ordenesdecompra.json?codigo=${encodeURIComponent(orden.Codigo)}&ticket=${TICKET}`;
-            const detalleData = await httpsGet(detalleUrl);
+        const url = `${API_BASE}/ordenesdecompra.json?estado=${estado}&CodigoProveedor=${proveedor.codigo}&ticket=${TICKET}`;
+        const data = await httpsGet(url);
+        
+        if (data.Listado && data.Listado.length > 0) {
+          console.log(`[AUTO-OC] ${data.Listado.length} OC encontradas para ${proveedor.nombre}`);
+          
+          for (const orden of data.Listado) {
+            if (ocProcesadas.has(orden.Codigo)) continue;
+            ocProcesadas.add(orden.Codigo);
             
-            if (detalleData.Listado && detalleData.Listado.length > 0) {
-              const detalle = detalleData.Listado[0];
-              const licitacionOC = detalle.CodigoLicitacion || '';
-              
-              // Verificar si la licitación está en nuestra BD
-              if (codigosLicitaciones.has(licitacionOC)) {
-                // Verificar si la OC ya existe en la BD
-                const yaExiste = await verificarOCExiste(detalle.Codigo);
-                if (yaExiste) {
-                  console.log(`[AUTO-OC] OC ${orden.Codigo} ya existe en BD, omitiendo`);
-                  continue;
+            // Intentar extraer licitación del nombre (ej: "...ID 1979-119-LQ25...")
+            let licitacionOC = '';
+            const nombreOC = orden.Nombre || '';
+            for (const licCodigo of codigosLicitaciones) {
+              if (nombreOC.includes(licCodigo) || nombreOC.includes(licCodigo.substring(0, licCodigo.lastIndexOf('-')))) {
+                licitacionOC = licCodigo;
+                break;
+              }
+            }
+            
+            // Si no encontramos en el nombre, obtener detalle
+            if (!licitacionOC) {
+              await sleep(300);
+              try {
+                const detalleUrl = `${API_BASE}/ordenesdecompra.json?codigo=${encodeURIComponent(orden.Codigo)}&ticket=${TICKET}`;
+                const detalleData = await httpsGet(detalleUrl);
+                if (detalleData.Listado?.[0]) {
+                  licitacionOC = detalleData.Listado[0].CodigoLicitacion || '';
                 }
-                
-                console.log(`[AUTO-OC] ✓ OC ${orden.Codigo} coincide con licitación ${licitacionOC}`);
+              } catch (e) {
+                // Ignorar errores de detalle
+              }
+            }
+            
+            // Verificar si coincide con nuestras licitaciones
+            if (codigosLicitaciones.has(licitacionOC)) {
+              const yaExiste = await verificarOCExiste(orden.Codigo);
+              if (yaExiste) {
+                console.log(`[AUTO-OC] OC ${orden.Codigo} ya existe en BD, omitiendo`);
+                continue;
+              }
+              
+              console.log(`[AUTO-OC] ✓ OC ${orden.Codigo} coincide con licitación ${licitacionOC}`);
+              
+              // Obtener detalle completo para guardar
+              await sleep(300);
+              try {
+                const detalleUrl = `${API_BASE}/ordenesdecompra.json?codigo=${encodeURIComponent(orden.Codigo)}&ticket=${TICKET}`;
+                const detalleData = await httpsGet(detalleUrl);
+                const detalle = detalleData.Listado?.[0] || {};
                 
                 const ordenFormateada = {
-                  codigo: detalle.Codigo,
-                  nombre: detalle.Nombre || `OC ${detalle.Codigo}`,
-                  estado: ESTADOS_ORDEN[detalle.CodigoEstado] || detalle.Estado || 'Desconocido',
-                  estado_codigo: detalle.CodigoEstado,
+                  codigo: orden.Codigo,
+                  nombre: detalle.Nombre || nombreOC || `OC ${orden.Codigo}`,
+                  estado: ESTADOS_ORDEN[detalle.CodigoEstado] || detalle.Estado || 'Aceptada',
+                  estado_codigo: detalle.CodigoEstado || 6,
                   proveedor: detalle.Proveedor?.Nombre || proveedor.nombre,
                   proveedor_rut: detalle.Proveedor?.RutProveedor || '',
                   monto: detalle.Total || 0,
@@ -491,27 +521,23 @@ export async function buscarNuevasOCDelDia(fecha = null) {
                   licitacion_codigo: licitacionOC
                 };
                 
-                // Guardar en BD
                 await guardarOrdenCompra(ordenFormateada);
                 ordenesEncontradas.push(ordenFormateada);
                 console.log(`[AUTO-OC] ✓ Guardada: ${orden.Codigo} - $${ordenFormateada.monto.toLocaleString('es-CL')}`);
-              } else {
-                console.log(`[AUTO-OC] OC ${orden.Codigo} no coincide (licitación: ${licitacionOC || 'sin licitación'})`);
+              } catch (e) {
+                console.log(`[AUTO-OC] Error guardando ${orden.Codigo}: ${e.message}`);
               }
             }
-          } catch (e) {
-            console.log(`[AUTO-OC] Error obteniendo detalle de ${orden.Codigo}: ${e.message}`);
           }
+        } else {
+          console.log(`[AUTO-OC] No se encontraron OC ${estado} para ${proveedor.nombre}`);
         }
-      } else {
-        console.log(`[AUTO-OC] No se encontraron OC para ${proveedor.nombre} en ${fechaStr}`);
-      }
-      
-    } catch (error) {
-      console.log(`[AUTO-OC] Error buscando OC de ${proveedor.nombre}: ${error.message}`);
-      if (error.message?.includes('simultáneas') || error.message?.includes('10500')) {
-        console.log('[AUTO-OC] Rate limited, esperando 10s...');
-        await sleep(10000);
+      } catch (error) {
+        console.log(`[AUTO-OC] Error buscando OC de ${proveedor.nombre}: ${error.message}`);
+        if (error.message?.includes('simultáneas') || error.message?.includes('10500')) {
+          console.log('[AUTO-OC] Rate limited, esperando 10s...');
+          await sleep(10000);
+        }
       }
     }
   }
