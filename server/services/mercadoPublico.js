@@ -415,3 +415,98 @@ export async function actualizarTodasLasLicitaciones() {
   
   return resultados;
 }
+
+/**
+ * Buscar OC emitidas en una fecha específica por los proveedores Therapía iv y Fresenius Kabi
+ * y filtrar las que pertenecen a licitaciones guardadas en la aplicación
+ */
+export async function buscarNuevasOCDelDia(fecha = null) {
+  // Si no se especifica fecha, usar el día anterior
+  const fechaBusqueda = fecha || new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const fechaStr = `${fechaBusqueda.getDate().toString().padStart(2, '0')}${(fechaBusqueda.getMonth() + 1).toString().padStart(2, '0')}${fechaBusqueda.getFullYear()}`;
+  
+  console.log(`[AUTO-OC] Buscando OC emitidas el ${fechaStr}...`);
+  
+  // Proveedores a buscar
+  const proveedores = [
+    { codigo: '66973', nombre: 'Therapía iv' },
+    { codigo: '44105', nombre: 'Fresenius Kabi Chile Ltda.' }
+  ];
+  
+  // Obtener todas las licitaciones guardadas (de todos los usuarios)
+  const licitacionesGuardadas = await obtenerLicitaciones();
+  const codigosLicitaciones = new Set(licitacionesGuardadas.map(l => l.codigo));
+  
+  console.log(`[AUTO-OC] Licitaciones en BD: ${codigosLicitaciones.size}`);
+  
+  const ordenesEncontradas = [];
+  
+  for (const proveedor of proveedores) {
+    console.log(`[AUTO-OC] Buscando OC del proveedor ${proveedor.nombre}...`);
+    
+    try {
+      await sleep(1000); // Pausa para evitar rate limit
+      
+      const url = `${API_BASE}/ordenesdecompra.json?fecha=${fechaStr}&CodigoProveedor=${proveedor.codigo}&ticket=${TICKET}`;
+      const data = await httpsGet(url);
+      
+      if (data.Listado && data.Listado.length > 0) {
+        console.log(`[AUTO-OC] ${data.Listado.length} OC encontradas para ${proveedor.nombre}`);
+        
+        for (const orden of data.Listado) {
+          // Necesitamos obtener el detalle para ver el CodigoLicitacion
+          await sleep(500);
+          try {
+            const detalleUrl = `${API_BASE}/ordenesdecompra.json?codigo=${encodeURIComponent(orden.Codigo)}&ticket=${TICKET}`;
+            const detalleData = await httpsGet(detalleUrl);
+            
+            if (detalleData.Listado && detalleData.Listado.length > 0) {
+              const detalle = detalleData.Listado[0];
+              const licitacionOC = detalle.CodigoLicitacion || '';
+              
+              // Verificar si la licitación está en nuestra BD
+              if (codigosLicitaciones.has(licitacionOC)) {
+                console.log(`[AUTO-OC] ✓ OC ${orden.Codigo} coincide con licitación ${licitacionOC}`);
+                
+                const ordenFormateada = {
+                  codigo: detalle.Codigo,
+                  nombre: detalle.Nombre || `OC ${detalle.Codigo}`,
+                  estado: ESTADOS_ORDEN[detalle.CodigoEstado] || detalle.Estado || 'Desconocido',
+                  estado_codigo: detalle.CodigoEstado,
+                  proveedor: detalle.Proveedor?.Nombre || proveedor.nombre,
+                  proveedor_rut: detalle.Proveedor?.RutProveedor || '',
+                  monto: detalle.Total || 0,
+                  moneda: detalle.TipoMoneda || 'CLP',
+                  fecha_envio: detalle.Fechas?.FechaEnvio || '',
+                  fecha_aceptacion: detalle.Fechas?.FechaAceptacion || '',
+                  licitacion_codigo: licitacionOC
+                };
+                
+                // Guardar en BD
+                await guardarOrdenCompra(ordenFormateada);
+                ordenesEncontradas.push(ordenFormateada);
+                console.log(`[AUTO-OC] ✓ Guardada: ${orden.Codigo} - $${ordenFormateada.monto.toLocaleString('es-CL')}`);
+              } else {
+                console.log(`[AUTO-OC] OC ${orden.Codigo} no coincide (licitación: ${licitacionOC || 'sin licitación'})`);
+              }
+            }
+          } catch (e) {
+            console.log(`[AUTO-OC] Error obteniendo detalle de ${orden.Codigo}: ${e.message}`);
+          }
+        }
+      } else {
+        console.log(`[AUTO-OC] No se encontraron OC para ${proveedor.nombre} en ${fechaStr}`);
+      }
+      
+    } catch (error) {
+      console.log(`[AUTO-OC] Error buscando OC de ${proveedor.nombre}: ${error.message}`);
+      if (error.message?.includes('simultáneas') || error.message?.includes('10500')) {
+        console.log('[AUTO-OC] Rate limited, esperando 10s...');
+        await sleep(10000);
+      }
+    }
+  }
+  
+  console.log(`[AUTO-OC] Total nuevas OC encontradas y guardadas: ${ordenesEncontradas.length}`);
+  return ordenesEncontradas;
+}
