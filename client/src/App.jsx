@@ -91,6 +91,7 @@ function App() {
   
   // Edición de licitación (botón lápiz)
   const [modoEdicion, setModoEdicion] = useState(null);
+  const [editandoLicitacion, setEditandoLicitacion] = useState(null);
   
   // Montos totales OC por licitación
   const [montosOC, setMontosOC] = useState({});
@@ -410,6 +411,16 @@ function App() {
         const saldoA = saldosLicitaciones[a.codigo]?.saldo ?? Infinity;
         const saldoB = saldosLicitaciones[b.codigo]?.saldo ?? Infinity;
         return saldoA - saldoB; // Menor saldo primero
+      });
+    } else if (ordenarPor === 'fecha') {
+      // Ordenar por fecha de vencimiento: vencidas primero, luego próximas a vencer
+      const hoy = new Date();
+      resultado.sort((a, b) => {
+        const fechaA = a.fecha_vencimiento ? new Date(a.fecha_vencimiento) : new Date('9999-12-31');
+        const fechaB = b.fecha_vencimiento ? new Date(b.fecha_vencimiento) : new Date('9999-12-31');
+        const diasA = Math.ceil((fechaA - hoy) / (1000 * 60 * 60 * 24));
+        const diasB = Math.ceil((fechaB - hoy) / (1000 * 60 * 60 * 24));
+        return diasA - diasB; // Vencidas y próximas primero
       });
     }
     
@@ -982,7 +993,8 @@ function App() {
               onChange={(e) => setOrdenarPor(e.target.value)}
               className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg"
             >
-              <option value="">Por fecha</option>
+              <option value="">Sin ordenar</option>
+              <option value="fecha">Por fecha vencimiento</option>
               <option value="monto">Por monto licitación</option>
               <option value="saldo">Por saldo (menor primero)</option>
             </select>
@@ -1063,17 +1075,39 @@ function App() {
                                   <span className={`font-semibold ${saldosLicitaciones[lic.codigo].saldo >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                     {formatearMonto(saldosLicitaciones[lic.codigo].saldo)}
                                   </span>
+                                  {lic.monto_total_licitacion > 0 && (
+                                    <span className={`ml-2 text-sm ${saldosLicitaciones[lic.codigo].saldo >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      ({((saldosLicitaciones[lic.codigo].saldo / lic.monto_total_licitacion) * 100).toFixed(1)}%)
+                                    </span>
+                                  )}
                                 </div>
                               )}
                             </>
                           )}
                         </div>
-                        {lic.fecha_vencimiento && (
-                          <p className="text-xs text-orange-600 mt-1">
-                            <Clock className="w-3 h-3 inline mr-1" />
-                            Vence: {formatearFecha(lic.fecha_vencimiento)}
-                          </p>
-                        )}
+                        {lic.fecha_vencimiento && (() => {
+                          const hoy = new Date();
+                          const vencimiento = new Date(lic.fecha_vencimiento);
+                          const diasRestantes = Math.ceil((vencimiento - hoy) / (1000 * 60 * 60 * 24));
+                          let colorDias = 'text-green-600';
+                          if (diasRestantes < 0) colorDias = 'text-red-600';
+                          else if (diasRestantes < 90) colorDias = 'text-red-600';
+                          else if (diasRestantes < 180) colorDias = 'text-yellow-600';
+                          
+                          return (
+                            <p className="text-xs text-orange-600 mt-1">
+                              <Clock className="w-3 h-3 inline mr-1" />
+                              Vence: {formatearFecha(lic.fecha_vencimiento)}
+                              <span className={`ml-2 font-bold ${colorDias}`}>
+                                {diasRestantes < 0 
+                                  ? `Vencida hace ${Math.abs(diasRestantes)} días`
+                                  : diasRestantes === 0 
+                                    ? 'Vence hoy'
+                                    : `Quedan ${diasRestantes} días`}
+                              </span>
+                            </p>
+                          );
+                        })()}
                       </div>
                       <div className="flex items-center gap-4 ml-4">
                         <div className="text-right">
