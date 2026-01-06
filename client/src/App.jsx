@@ -18,7 +18,9 @@ import {
   LogOut,
   User,
   Filter,
-  ArrowUpDown
+  ArrowUpDown,
+  Bell,
+  BellRing
 } from 'lucide-react';
 import {
   obtenerLicitaciones,
@@ -44,7 +46,13 @@ import {
   cambiarPassword,
   eliminarCuenta,
   exportarDatos,
-  sincronizarConRailway
+  sincronizarConRailway,
+  obtenerNotificaciones,
+  contarNotificacionesNoLeidas,
+  marcarNotificacionLeida,
+  marcarTodasNotificacionesLeidas,
+  eliminarNotificacion,
+  eliminarTodasNotificaciones
 } from './services/api';
 
 function App() {
@@ -96,6 +104,11 @@ function App() {
   const [railwayEmail, setRailwayEmail] = useState(localStorage.getItem('railwayEmail') || '');
   const [railwayPassword, setRailwayPassword] = useState('');
   const [sincronizando, setSincronizando] = useState(false);
+  
+  // Notificaciones
+  const [notificaciones, setNotificaciones] = useState([]);
+  const [contadorNotif, setContadorNotif] = useState(0);
+  const [mostrarNotificaciones, setMostrarNotificaciones] = useState(false);
 
   // Verificar si hay usuario guardado al cargar
   useEffect(() => {
@@ -109,8 +122,58 @@ function App() {
   useEffect(() => {
     if (usuario) {
       cargarDatos();
+      cargarNotificaciones();
+      // Actualizar contador de notificaciones cada 30 segundos
+      const interval = setInterval(cargarContadorNotificaciones, 30000);
+      return () => clearInterval(interval);
     }
   }, [usuario]);
+  
+  async function cargarNotificaciones() {
+    try {
+      const notifs = await obtenerNotificaciones();
+      setNotificaciones(notifs);
+      const count = await contarNotificacionesNoLeidas();
+      setContadorNotif(count);
+    } catch (e) {
+      console.log('Error cargando notificaciones:', e.message);
+    }
+  }
+  
+  async function cargarContadorNotificaciones() {
+    try {
+      const count = await contarNotificacionesNoLeidas();
+      setContadorNotif(count);
+    } catch (e) {}
+  }
+  
+  async function handleMarcarTodasLeidas() {
+    try {
+      await marcarTodasNotificacionesLeidas();
+      await cargarNotificaciones();
+    } catch (e) {
+      setError('Error: ' + e.message);
+    }
+  }
+  
+  async function handleEliminarTodasNotificaciones() {
+    try {
+      await eliminarTodasNotificaciones();
+      setNotificaciones([]);
+      setContadorNotif(0);
+    } catch (e) {
+      setError('Error: ' + e.message);
+    }
+  }
+  
+  async function handleEliminarNotificacion(id) {
+    try {
+      await eliminarNotificacion(id);
+      await cargarNotificaciones();
+    } catch (e) {
+      setError('Error: ' + e.message);
+    }
+  }
 
   async function cargarDatos() {
     setCargando(true);
@@ -643,6 +706,101 @@ function App() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {/* Botón de notificaciones */}
+              <div className="relative">
+                <button
+                  onClick={() => { setMostrarNotificaciones(!mostrarNotificaciones); cargarNotificaciones(); }}
+                  className={`relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                    contadorNotif > 0 
+                      ? 'text-orange-600 bg-orange-50 hover:bg-orange-100 animate-pulse' 
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {contadorNotif > 0 ? <BellRing className="w-5 h-5" /> : <Bell className="w-5 h-5" />}
+                  {contadorNotif > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                      {contadorNotif > 9 ? '9+' : contadorNotif}
+                    </span>
+                  )}
+                </button>
+                
+                {/* Panel de notificaciones */}
+                {mostrarNotificaciones && (
+                  <div className="absolute right-0 top-12 w-96 bg-white rounded-xl shadow-2xl border border-slate-200 z-50 max-h-[500px] overflow-hidden">
+                    <div className="p-4 border-b border-slate-200 bg-gradient-to-r from-blue-600 to-blue-700">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-bold text-white flex items-center gap-2">
+                          <Bell className="w-5 h-5" />
+                          Notificaciones
+                        </h3>
+                        <button 
+                          onClick={() => setMostrarNotificaciones(false)}
+                          className="text-white/80 hover:text-white"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="max-h-80 overflow-y-auto">
+                      {notificaciones.length === 0 ? (
+                        <div className="p-8 text-center text-slate-500">
+                          <Bell className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                          <p>No hay notificaciones</p>
+                        </div>
+                      ) : (
+                        notificaciones.map(notif => (
+                          <div 
+                            key={notif.id} 
+                            className={`p-4 border-b border-slate-100 hover:bg-slate-50 ${
+                              !notif.leida ? 'bg-blue-50/50' : ''
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className={`p-2 rounded-lg ${!notif.leida ? 'bg-orange-100' : 'bg-slate-100'}`}>
+                                <ShoppingCart className={`w-4 h-4 ${!notif.leida ? 'text-orange-600' : 'text-slate-500'}`} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm ${!notif.leida ? 'font-semibold text-slate-900' : 'text-slate-700'}`}>
+                                  {notif.titulo}
+                                </p>
+                                <p className="text-sm text-slate-600 mt-1">{notif.mensaje}</p>
+                                <p className="text-xs text-slate-400 mt-2">
+                                  {new Date(notif.fecha_creada).toLocaleString('es-CL')}
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => handleEliminarNotificacion(notif.id)}
+                                className="text-slate-400 hover:text-red-500 p-1"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    
+                    {notificaciones.length > 0 && (
+                      <div className="p-3 border-t border-slate-200 bg-slate-50 flex gap-2">
+                        <button
+                          onClick={handleMarcarTodasLeidas}
+                          className="flex-1 text-sm text-blue-600 hover:bg-blue-50 py-2 rounded-lg"
+                        >
+                          Marcar todas leídas
+                        </button>
+                        <button
+                          onClick={handleEliminarTodasNotificaciones}
+                          className="flex-1 text-sm text-red-600 hover:bg-red-50 py-2 rounded-lg"
+                        >
+                          Eliminar todas
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              
               <button
                 onClick={() => setMostrarSync(true)}
                 className="flex items-center gap-2 px-3 py-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg text-sm font-medium"

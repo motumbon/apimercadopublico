@@ -145,6 +145,22 @@ export async function initDatabase() {
   
   database.run(`CREATE INDEX IF NOT EXISTS idx_ordenes_licitacion ON ordenes_compra(licitacion_codigo)`);
   
+  // Tabla de notificaciones
+  database.run(`
+    CREATE TABLE IF NOT EXISTS notificaciones (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tipo TEXT NOT NULL,
+      titulo TEXT NOT NULL,
+      mensaje TEXT NOT NULL,
+      licitacion_codigo TEXT,
+      cantidad_oc INTEGER,
+      leida INTEGER DEFAULT 0,
+      fecha_creada TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  
+  database.run(`CREATE INDEX IF NOT EXISTS idx_notificaciones_leida ON notificaciones(leida)`);
+  
   // Migrar columnas si no existen
   try {
     database.run(`ALTER TABLE licitaciones ADD COLUMN institucion_id INTEGER`);
@@ -465,4 +481,63 @@ export async function eliminarUsuario(userId, password) {
   database.run('DELETE FROM licitaciones WHERE user_id = ?', [userId]);
   database.run('DELETE FROM usuarios WHERE id = ?', [userId]);
   saveDatabase();
+}
+
+// === FUNCIONES DE NOTIFICACIONES ===
+
+export async function crearNotificacion(tipo, titulo, mensaje, licitacionCodigo = null, cantidadOC = null) {
+  const database = await getDatabase();
+  database.run(`
+    INSERT INTO notificaciones (tipo, titulo, mensaje, licitacion_codigo, cantidad_oc)
+    VALUES (?, ?, ?, ?, ?)
+  `, [tipo, titulo, mensaje, licitacionCodigo, cantidadOC]);
+  saveDatabase();
+  console.log(`[NOTIF] Nueva notificación: ${titulo}`);
+}
+
+export async function obtenerNotificaciones(soloNoLeidas = false) {
+  const database = await getDatabase();
+  const query = soloNoLeidas 
+    ? 'SELECT * FROM notificaciones WHERE leida = 0 ORDER BY fecha_creada DESC'
+    : 'SELECT * FROM notificaciones ORDER BY fecha_creada DESC LIMIT 50';
+  const result = database.exec(query);
+  return resultToObjects(result);
+}
+
+export async function contarNotificacionesNoLeidas() {
+  const database = await getDatabase();
+  const result = database.exec('SELECT COUNT(*) as count FROM notificaciones WHERE leida = 0');
+  const rows = resultToObjects(result);
+  return rows.length > 0 ? rows[0].count : 0;
+}
+
+export async function marcarNotificacionLeida(id) {
+  const database = await getDatabase();
+  database.run('UPDATE notificaciones SET leida = 1 WHERE id = ?', [id]);
+  saveDatabase();
+}
+
+export async function marcarTodasLeidas() {
+  const database = await getDatabase();
+  database.run('UPDATE notificaciones SET leida = 1');
+  saveDatabase();
+}
+
+export async function eliminarNotificacion(id) {
+  const database = await getDatabase();
+  database.run('DELETE FROM notificaciones WHERE id = ?', [id]);
+  saveDatabase();
+}
+
+export async function eliminarTodasNotificaciones() {
+  const database = await getDatabase();
+  database.run('DELETE FROM notificaciones');
+  saveDatabase();
+}
+
+export async function verificarOCExiste(codigoOC) {
+  const database = await getDatabase();
+  const result = database.exec('SELECT COUNT(*) as count FROM ordenes_compra WHERE codigo = ?', [codigoOC]);
+  const rows = resultToObjects(result);
+  return rows.length > 0 && rows[0].count > 0;
 }

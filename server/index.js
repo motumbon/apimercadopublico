@@ -13,6 +13,7 @@ import cron from 'node-cron';
 import licitacionesRoutes from './routes/licitaciones.js';
 import ordenesRoutes from './routes/ordenes.js';
 import authRoutes from './routes/auth.js';
+import notificacionesRoutes from './routes/notificaciones.js';
 import { initDatabase } from './db/database.js';
 import { actualizarTodasLasLicitaciones, buscarNuevasOCDelDia } from './services/mercadoPublico.js';
 
@@ -25,6 +26,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/licitaciones', licitacionesRoutes);
 app.use('/api/ordenes', ordenesRoutes);
+app.use('/api/notificaciones', notificacionesRoutes);
 
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../client/dist')));

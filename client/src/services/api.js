@@ -340,3 +340,55 @@ export async function importarDatos(datos) {
   if (!data.success) throw new Error(data.error);
   return data;
 }
+
+// === NOTIFICACIONES ===
+
+export async function obtenerNotificaciones(soloNoLeidas = false) {
+  const res = await fetch(`${API_BASE}/notificaciones?noLeidas=${soloNoLeidas}`);
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error);
+  return data.notificaciones;
+}
+
+export async function contarNotificacionesNoLeidas() {
+  const res = await fetch(`${API_BASE}/notificaciones/contador`);
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error);
+  return data.count;
+}
+
+export async function marcarNotificacionLeida(id) {
+  const res = await fetch(`${API_BASE}/notificaciones/${id}/leida`, {
+    method: 'PUT'
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error);
+  return data;
+}
+
+export async function marcarTodasNotificacionesLeidas() {
+  const res = await fetch(`${API_BASE}/notificaciones/marcar-todas-leidas`, {
+    method: 'PUT'
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error);
+  return data;
+}
+
+export async function eliminarNotificacion(id) {
+  const res = await fetch(`${API_BASE}/notificaciones/${id}`, {
+    method: 'DELETE'
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error);
+  return data;
+}
+
+export async function eliminarTodasNotificaciones() {
+  const res = await fetch(`${API_BASE}/notificaciones`, {
+    method: 'DELETE'
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error);
+  return data;
+}

@@ -2,7 +2,9 @@ import axios from 'axios';
 import { 
   guardarLicitacion, 
   guardarOrdenCompra, 
-  obtenerLicitaciones 
+  obtenerLicitaciones,
+  crearNotificacion,
+  verificarOCExiste
 } from '../db/database.js';
 
 const API_BASE = 'https://api.mercadopublico.cl/servicios/v1/publico';
@@ -466,6 +468,13 @@ export async function buscarNuevasOCDelDia(fecha = null) {
               
               // Verificar si la licitación está en nuestra BD
               if (codigosLicitaciones.has(licitacionOC)) {
+                // Verificar si la OC ya existe en la BD
+                const yaExiste = await verificarOCExiste(detalle.Codigo);
+                if (yaExiste) {
+                  console.log(`[AUTO-OC] OC ${orden.Codigo} ya existe en BD, omitiendo`);
+                  continue;
+                }
+                
                 console.log(`[AUTO-OC] ✓ OC ${orden.Codigo} coincide con licitación ${licitacionOC}`);
                 
                 const ordenFormateada = {
@@ -508,5 +517,33 @@ export async function buscarNuevasOCDelDia(fecha = null) {
   }
   
   console.log(`[AUTO-OC] Total nuevas OC encontradas y guardadas: ${ordenesEncontradas.length}`);
+  
+  // Crear notificaciones agrupadas por licitación
+  if (ordenesEncontradas.length > 0) {
+    const ocPorLicitacion = {};
+    for (const oc of ordenesEncontradas) {
+      if (!ocPorLicitacion[oc.licitacion_codigo]) {
+        ocPorLicitacion[oc.licitacion_codigo] = [];
+      }
+      ocPorLicitacion[oc.licitacion_codigo].push(oc);
+    }
+    
+    // Crear una notificación por cada licitación
+    for (const [licitacionCodigo, ordenes] of Object.entries(ocPorLicitacion)) {
+      const cantidad = ordenes.length;
+      const montoTotal = ordenes.reduce((sum, oc) => sum + (oc.monto || 0), 0);
+      
+      await crearNotificacion(
+        'nueva_oc',
+        `Nuevas OC detectadas`,
+        `Se agregaron ${cantidad} OC a ID "${licitacionCodigo}" (Total: $${montoTotal.toLocaleString('es-CL')})`,
+        licitacionCodigo,
+        cantidad
+      );
+    }
+    
+    console.log(`[AUTO-OC] ${Object.keys(ocPorLicitacion).length} notificaciones creadas`);
+  }
+  
   return ordenesEncontradas;
 }
