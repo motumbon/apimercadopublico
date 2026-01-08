@@ -20,7 +20,8 @@ import {
   Filter,
   ArrowUpDown,
   Bell,
-  BellRing
+  BellRing,
+  ExternalLink
 } from 'lucide-react';
 import {
   obtenerLicitaciones,
@@ -508,6 +509,40 @@ function App() {
     }
   }
 
+  async function navegarALicitacion(notif) {
+    // Cerrar panel de notificaciones
+    setMostrarNotificaciones(false);
+    
+    // Marcar como leída
+    if (!notif.leida) {
+      try {
+        await marcarNotificacionLeida(notif.id);
+        await cargarNotificaciones();
+      } catch (e) {}
+    }
+    
+    // Verificar si la licitación existe
+    const licitacionCodigo = notif.licitacion_codigo;
+    if (!licitacionCodigo) return;
+    
+    // Expandir la licitación y cargar sus OC
+    try {
+      const data = await obtenerLicitacionConOrdenes(licitacionCodigo);
+      setOrdenesExpandidas(prev => ({ ...prev, [licitacionCodigo]: data.ordenes }));
+      setExpandida(licitacionCodigo);
+      
+      // Hacer scroll a la licitación después de un pequeño delay
+      setTimeout(() => {
+        const elemento = document.getElementById(`licitacion-${licitacionCodigo}`);
+        if (elemento) {
+          elemento.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    } catch (err) {
+      setError('Error al navegar a la licitación: ' + err.message);
+    }
+  }
+
   function getEstadoColor(estado) {
     const colores = {
       'Publicada': 'bg-blue-100 text-blue-800',
@@ -763,9 +798,10 @@ function App() {
                         notificaciones.map(notif => (
                           <div 
                             key={notif.id} 
-                            className={`p-4 border-b border-slate-100 hover:bg-slate-50 ${
+                            className={`p-4 border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors ${
                               !notif.leida ? 'bg-blue-50/50' : ''
                             }`}
+                            onClick={() => navegarALicitacion(notif)}
                           >
                             <div className="flex items-start gap-3">
                               <div className={`p-2 rounded-lg ${!notif.leida ? 'bg-orange-100' : 'bg-slate-100'}`}>
@@ -779,9 +815,15 @@ function App() {
                                 <p className="text-xs text-slate-400 mt-2">
                                   {new Date(notif.fecha_creada).toLocaleString('es-CL')}
                                 </p>
+                                {notif.licitacion_codigo && (
+                                  <p className="text-xs text-blue-500 mt-1 flex items-center gap-1">
+                                    <ExternalLink className="w-3 h-3" />
+                                    Ver licitación {notif.licitacion_codigo}
+                                  </p>
+                                )}
                               </div>
                               <button
-                                onClick={() => handleEliminarNotificacion(notif.id)}
+                                onClick={(e) => { e.stopPropagation(); handleEliminarNotificacion(notif.id); }}
                                 className="text-slate-400 hover:text-red-500 p-1"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -1031,7 +1073,7 @@ function App() {
           ) : (
             <div className="divide-y divide-slate-200">
               {licitacionesFiltradas.map((lic) => (
-                <div key={lic.codigo} className="hover:bg-slate-50 transition-colors">
+                <div key={lic.codigo} id={`licitacion-${lic.codigo}`} className="hover:bg-slate-50 transition-colors">
                   <div 
                     className="px-6 py-4 cursor-pointer"
                     onClick={() => toggleExpandir(lic.codigo)}
