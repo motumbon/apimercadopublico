@@ -133,9 +133,15 @@ async function startServer() {
   await initDatabase();
   
   app.listen(PORT, () => {
+    const ahora = new Date();
+    const horaChile = ahora.toLocaleString('es-CL', { timeZone: 'America/Santiago' });
     console.log(`Servidor corriendo en puerto ${PORT}`);
+    console.log(`Hora de inicio (Chile): ${horaChile}`);
     console.log(`Actualización automática de licitaciones: 18:00 hrs (Chile)`);
     console.log(`Búsqueda automática de nuevas OC: 01:00 hrs (Chile)`);
+    
+    // Log para verificar próximas ejecuciones del CRON
+    console.log(`[CRON] Próximas ejecuciones programadas - verificar que el servidor no se reinicie`);
   });
 }
 

@@ -55,7 +55,8 @@ import {
   marcarTodasNotificacionesLeidas,
   eliminarNotificacion,
   eliminarTodasNotificaciones,
-  importarOCDesdeNube
+  importarOCDesdeNube,
+  buscarOCEnRailway
 } from './services/api';
 
 function App() {
@@ -343,16 +344,22 @@ function App() {
     setMensaje(null);
     
     try {
+      // 1. Primero ejecutar búsqueda de OC en Railway (como el CRON)
+      setMensaje('Buscando nuevas OC en Mercado Público...');
+      const busqueda = await buscarOCEnRailway();
+      
+      // 2. Luego importar las OC encontradas al entorno local
+      setMensaje('Importando OC al entorno local...');
       const resultado = await importarOCDesdeNube();
-      if (resultado.importadas > 0) {
-        setMensaje(`✓ Importación completada: ${resultado.importadas} OC nuevas importadas (${resultado.existentes} ya existían)`);
-        // Recargar licitaciones para ver las OC importadas
+      
+      if (resultado.importadas > 0 || busqueda.ordenes?.length > 0) {
+        setMensaje(`✓ Búsqueda: ${busqueda.ordenes?.length || 0} OC detectadas en Railway. Importación: ${resultado.importadas} OC nuevas (${resultado.existentes} ya existían)`);
         await cargarLicitaciones();
       } else {
-        setMensaje(`No hay OC nuevas para importar (${resultado.existentes} ya existían en local)`);
+        setMensaje(`Búsqueda completada. No hay OC nuevas para importar (${resultado.existentes} ya existían)`);
       }
     } catch (err) {
-      setError('Error importando OC: ' + err.message);
+      setError('Error: ' + err.message);
     } finally {
       setImportandoNube(false);
     }
@@ -889,14 +896,14 @@ function App() {
                 onClick={handleImportarOCNube}
                 disabled={importandoNube}
                 className="flex items-center gap-2 px-3 py-2 text-green-600 bg-green-50 hover:bg-green-100 rounded-lg text-sm font-medium disabled:opacity-50"
-                title="Importar OC detectadas en Railway al entorno local"
+                title="Buscar nuevas OC en Mercado Público e importarlas"
               >
                 {importandoNube ? (
                   <RefreshCw className="w-4 h-4 animate-spin" />
                 ) : (
                   <Cloud className="w-4 h-4" />
                 )}
-                {importandoNube ? 'Importando...' : 'Importar OC'}
+                {importandoNube ? 'Buscando...' : 'Buscar OC'}
               </button>
               <button
                 onClick={() => { setVistaAuth('perfil'); setError(null); setMensaje(null); }}

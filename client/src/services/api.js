@@ -393,9 +393,19 @@ export async function eliminarTodasNotificaciones() {
   return data;
 }
 
-// === IMPORTAR OC DESDE LA NUBE (RAILWAY) ===
+// === BUSCAR OC EN RAILWAY (ejecutar búsqueda manual) ===
 
 const RAILWAY_URL = 'https://apimercadopublico-production.up.railway.app';
+
+export async function buscarOCEnRailway() {
+  // Ejecutar la búsqueda de OC en Railway (como el CRON de la 1:00 AM)
+  const res = await fetch(`${RAILWAY_URL}/api/test/buscar-oc-ayer`);
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || 'Error al buscar OC');
+  return data;
+}
+
+// === IMPORTAR OC DESDE LA NUBE (RAILWAY) ===
 
 export async function importarOCDesdeNube() {
   // 1. Obtener OC desde Railway
