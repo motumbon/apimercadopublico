@@ -62,6 +62,37 @@ cron.schedule('0 1 * * *', async () => {
   timezone: 'America/Santiago'
 });
 
+// Endpoint público para exportar todas las OC (para sincronización entre entornos)
+app.get('/api/exportar-oc', async (req, res) => {
+  try {
+    const { obtenerTodasLasOC } = await import('./db/database.js');
+    const ordenes = await obtenerTodasLasOC();
+    res.json({ success: true, ordenes });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Endpoint para importar una OC individual (desde la nube)
+app.post('/api/ordenes/importar', async (req, res) => {
+  try {
+    const { guardarOrdenCompra, verificarOCExiste } = await import('./db/database.js');
+    const orden = req.body;
+    
+    // Verificar si ya existe
+    const existe = await verificarOCExiste(orden.codigo);
+    if (existe) {
+      return res.json({ success: true, nueva: false, mensaje: 'OC ya existe' });
+    }
+    
+    // Guardar la OC
+    await guardarOrdenCompra(orden);
+    res.json({ success: true, nueva: true, mensaje: 'OC importada' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Endpoint para probar la búsqueda de nuevas OC manualmente
 app.get('/api/test/buscar-oc-ayer', async (req, res) => {
   try {

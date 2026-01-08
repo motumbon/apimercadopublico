@@ -392,3 +392,43 @@ export async function eliminarTodasNotificaciones() {
   if (!data.success) throw new Error(data.error);
   return data;
 }
+
+// === IMPORTAR OC DESDE LA NUBE (RAILWAY) ===
+
+const RAILWAY_URL = 'https://apimercadopublico-production.up.railway.app';
+
+export async function importarOCDesdeNube() {
+  // 1. Obtener OC desde Railway
+  const resNube = await fetch(`${RAILWAY_URL}/api/exportar-oc`);
+  const dataNube = await resNube.json();
+  if (!dataNube.success) throw new Error(dataNube.error || 'Error al obtener OC de la nube');
+  
+  // 2. Guardar cada OC en el servidor local
+  let importadas = 0;
+  let existentes = 0;
+  
+  for (const orden of dataNube.ordenes) {
+    try {
+      const res = await fetch(`${API_BASE}/ordenes/importar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify(orden)
+      });
+      const data = await res.json();
+      if (data.nueva) {
+        importadas++;
+      } else {
+        existentes++;
+      }
+    } catch (e) {
+      console.error('Error importando OC:', orden.codigo, e);
+    }
+  }
+  
+  return { 
+    success: true, 
+    importadas, 
+    existentes, 
+    total: dataNube.ordenes.length 
+  };
+}

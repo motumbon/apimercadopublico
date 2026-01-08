@@ -305,6 +305,17 @@ export async function obtenerOrdenesDeCompra(licitacionCodigo) {
   return resultToObjects(result);
 }
 
+export async function obtenerTodasLasOC() {
+  const database = await getDatabase();
+  const result = database.exec(
+    `SELECT * FROM ordenes_compra 
+     WHERE (proveedor = 'Therapía iv' OR proveedor = 'Fresenius Kabi Chile Ltda.')
+     AND estado != 'Cancelada'
+     ORDER BY fecha_envio DESC`
+  );
+  return resultToObjects(result);
+}
+
 export async function eliminarLicitacion(codigo, userId) {
   const database = await getDatabase();
   database.run('DELETE FROM ordenes_compra WHERE licitacion_codigo = ?', [codigo]);

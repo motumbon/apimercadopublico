@@ -21,7 +21,8 @@ import {
   ArrowUpDown,
   Bell,
   BellRing,
-  ExternalLink
+  ExternalLink,
+  Cloud
 } from 'lucide-react';
 import {
   obtenerLicitaciones,
@@ -53,7 +54,8 @@ import {
   marcarNotificacionLeida,
   marcarTodasNotificacionesLeidas,
   eliminarNotificacion,
-  eliminarTodasNotificaciones
+  eliminarTodasNotificaciones,
+  importarOCDesdeNube
 } from './services/api';
 
 function App() {
@@ -106,6 +108,7 @@ function App() {
   const [railwayEmail, setRailwayEmail] = useState(localStorage.getItem('railwayEmail') || '');
   const [railwayPassword, setRailwayPassword] = useState('');
   const [sincronizando, setSincronizando] = useState(false);
+  const [importandoNube, setImportandoNube] = useState(false);
   
   // Notificaciones
   const [notificaciones, setNotificaciones] = useState([]);
@@ -331,6 +334,27 @@ function App() {
       setError('Error sincronizando: ' + err.message);
     } finally {
       setSincronizando(false);
+    }
+  }
+
+  async function handleImportarOCNube() {
+    setImportandoNube(true);
+    setError(null);
+    setMensaje(null);
+    
+    try {
+      const resultado = await importarOCDesdeNube();
+      if (resultado.importadas > 0) {
+        setMensaje(`✓ Importación completada: ${resultado.importadas} OC nuevas importadas (${resultado.existentes} ya existían)`);
+        // Recargar licitaciones para ver las OC importadas
+        await cargarLicitaciones();
+      } else {
+        setMensaje(`No hay OC nuevas para importar (${resultado.existentes} ya existían en local)`);
+      }
+    } catch (err) {
+      setError('Error importando OC: ' + err.message);
+    } finally {
+      setImportandoNube(false);
     }
   }
   
@@ -860,6 +884,19 @@ function App() {
               >
                 <RefreshCw className="w-4 h-4" />
                 Sincronizar
+              </button>
+              <button
+                onClick={handleImportarOCNube}
+                disabled={importandoNube}
+                className="flex items-center gap-2 px-3 py-2 text-green-600 bg-green-50 hover:bg-green-100 rounded-lg text-sm font-medium disabled:opacity-50"
+                title="Importar OC detectadas en Railway al entorno local"
+              >
+                {importandoNube ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Cloud className="w-4 h-4" />
+                )}
+                {importandoNube ? 'Importando...' : 'Importar OC'}
               </button>
               <button
                 onClick={() => { setVistaAuth('perfil'); setError(null); setMensaje(null); }}
