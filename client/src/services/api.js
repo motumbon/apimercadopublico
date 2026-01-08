@@ -393,52 +393,14 @@ export async function eliminarTodasNotificaciones() {
   return data;
 }
 
-// === BUSCAR OC EN RAILWAY (ejecutar búsqueda manual) ===
+// === BUSCAR OC (ejecutar búsqueda manual en el servidor actual) ===
 
-const RAILWAY_URL = 'https://apimercadopublico-production.up.railway.app';
-
-export async function buscarOCEnRailway() {
-  // Ejecutar la búsqueda de OC en Railway (como el CRON de la 1:00 AM)
-  const res = await fetch(`${RAILWAY_URL}/api/test/buscar-oc-ayer`);
+export async function buscarOCManual() {
+  // Ejecutar la búsqueda de OC en el servidor actual (mismo origen)
+  const res = await fetch(`${API_BASE}/test/buscar-oc-ayer`, {
+    headers: { ...authHeaders() }
+  });
   const data = await res.json();
   if (!data.success) throw new Error(data.error || 'Error al buscar OC');
   return data;
-}
-
-// === IMPORTAR OC DESDE LA NUBE (RAILWAY) ===
-
-export async function importarOCDesdeNube() {
-  // 1. Obtener OC desde Railway
-  const resNube = await fetch(`${RAILWAY_URL}/api/exportar-oc`);
-  const dataNube = await resNube.json();
-  if (!dataNube.success) throw new Error(dataNube.error || 'Error al obtener OC de la nube');
-  
-  // 2. Guardar cada OC en el servidor local
-  let importadas = 0;
-  let existentes = 0;
-  
-  for (const orden of dataNube.ordenes) {
-    try {
-      const res = await fetch(`${API_BASE}/ordenes/importar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify(orden)
-      });
-      const data = await res.json();
-      if (data.nueva) {
-        importadas++;
-      } else {
-        existentes++;
-      }
-    } catch (e) {
-      console.error('Error importando OC:', orden.codigo, e);
-    }
-  }
-  
-  return { 
-    success: true, 
-    importadas, 
-    existentes, 
-    total: dataNube.ordenes.length 
-  };
 }
