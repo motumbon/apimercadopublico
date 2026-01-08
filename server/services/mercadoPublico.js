@@ -420,20 +420,18 @@ export async function actualizarTodasLasLicitaciones() {
 }
 
 /**
- * Buscar OC recientes por estado (Aceptada/Enviada) de Therapía iv y Fresenius Kabi
+ * Buscar OC recientes por FECHA de Therapía iv y Fresenius Kabi
+ * Busca los últimos 3 días para no perder OC
  * Filtra las que pertenecen a licitaciones guardadas y no están ya en la BD
  */
 export async function buscarNuevasOCDelDia() {
-  console.log(`[AUTO-OC] Buscando OC recientes por estado...`);
+  console.log(`[AUTO-OC] Buscando OC por fecha...`);
   
   // Proveedores a buscar
   const proveedores = [
     { codigo: '66973', nombre: 'Therapía iv' },
     { codigo: '44105', nombre: 'Fresenius Kabi Chile Ltda.' }
   ];
-  
-  // Estados a buscar: Aceptada (6) y Enviada (4)
-  const estados = ['aceptada', 'enviada'];
   
   // Obtener todas las licitaciones guardadas (de todos los usuarios)
   const licitacionesGuardadas = await obtenerTodasLasLicitaciones();
@@ -448,8 +446,19 @@ export async function buscarNuevasOCDelDia() {
   const ordenesEncontradas = [];
   const ocProcesadas = new Set();
   
-  for (const estado of estados) {
-    console.log(`[AUTO-OC] Buscando OC con estado: ${estado}...`);
+  // Buscar OC de los últimos 3 días
+  const fechasABuscar = [];
+  for (let i = 0; i < 3; i++) {
+    const fecha = new Date();
+    fecha.setDate(fecha.getDate() - i);
+    const dia = String(fecha.getDate()).padStart(2, '0');
+    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+    const anio = fecha.getFullYear();
+    fechasABuscar.push(`${dia}${mes}${anio}`);
+  }
+  
+  for (const fechaStr of fechasABuscar) {
+    console.log(`[AUTO-OC] Buscando OC del ${fechaStr}...`);
     
     for (const proveedor of proveedores) {
       console.log(`[AUTO-OC] Proveedor: ${proveedor.nombre}...`);
@@ -457,11 +466,11 @@ export async function buscarNuevasOCDelDia() {
       try {
         await sleep(1000);
         
-        const url = `${API_BASE}/ordenesdecompra.json?estado=${estado}&CodigoProveedor=${proveedor.codigo}&ticket=${TICKET}`;
+        const url = `${API_BASE}/ordenesdecompra.json?fecha=${fechaStr}&CodigoProveedor=${proveedor.codigo}&ticket=${TICKET}`;
         const data = await httpsGet(url);
         
         if (data.Listado && data.Listado.length > 0) {
-          console.log(`[AUTO-OC] ${data.Listado.length} OC encontradas para ${proveedor.nombre}`);
+          console.log(`[AUTO-OC] ${data.Listado.length} OC encontradas para ${proveedor.nombre} el ${fechaStr}`);
           
           for (const orden of data.Listado) {
             if (ocProcesadas.has(orden.Codigo)) continue;
@@ -531,7 +540,7 @@ export async function buscarNuevasOCDelDia() {
             }
           }
         } else {
-          console.log(`[AUTO-OC] No se encontraron OC ${estado} para ${proveedor.nombre}`);
+          console.log(`[AUTO-OC] No se encontraron OC para ${proveedor.nombre} el ${fechaStr}`);
         }
       } catch (error) {
         console.log(`[AUTO-OC] Error buscando OC de ${proveedor.nombre}: ${error.message}`);
