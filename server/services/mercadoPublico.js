@@ -446,9 +446,9 @@ export async function buscarNuevasOCDelDia() {
   const ordenesEncontradas = [];
   const ocProcesadas = new Set();
   
-  // Buscar OC de los últimos 3 días
+  // Buscar OC de los últimos 2 días
   const fechasABuscar = [];
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 2; i++) {
     const fecha = new Date();
     fecha.setDate(fecha.getDate() - i);
     const dia = String(fecha.getDate()).padStart(2, '0');
