@@ -32,14 +32,6 @@ app.use('/api/licitaciones', licitacionesRoutes);
 app.use('/api/ordenes', ordenesRoutes);
 app.use('/api/notificaciones', notificacionesRoutes);
 
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/dist')));
-  
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
-  });
-}
-
 // Tarea programada: Actualización de licitaciones a las 18:00 hrs
 cron.schedule('0 18 * * *', async () => {
   console.log('[CRON] Ejecutando actualización automática a las 18:00 hrs');
@@ -132,6 +124,15 @@ app.get('/api/test/buscar-oc/:fecha', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+// Catch-all para servir el frontend en producción (DEBE ir al final)
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../client/dist')));
+  
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+  });
+}
 
 async function startServer() {
   await initDatabase();
