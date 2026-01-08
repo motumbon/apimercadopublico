@@ -172,7 +172,7 @@ router.post('/:codigo/detectar-oc', async (req, res) => {
     } else {
       // En local: usar scraper con ventana visible para navegación manual
       console.log('[API] Modo local: abriendo navegador para navegación manual');
-      const codigosOC = await scrapeOrdenesManual(codigo, 120000); // 2 minutos
+      const codigosOC = await scrapeOrdenesManual(codigo, 60000); // 1 minuto
       
       if (codigosOC.length > 0) {
         // Obtener detalles de cada OC usando la API

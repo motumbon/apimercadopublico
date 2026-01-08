@@ -45,9 +45,9 @@ cron.schedule('0 18 * * *', async () => {
   timezone: 'America/Santiago'
 });
 
-// Tarea programada: Buscar nuevas OC a las 05:00 hrs
-cron.schedule('0 5 * * *', async () => {
-  console.log('[CRON-OC] Ejecutando búsqueda automática de nuevas OC a las 05:00 hrs');
+// Tarea programada: Buscar nuevas OC a las 23:00 hrs
+cron.schedule('0 23 * * *', async () => {
+  console.log('[CRON-OC] Ejecutando búsqueda automática de nuevas OC a las 23:00 hrs');
   try {
     const nuevasOC = await buscarNuevasOCDelDia();
     console.log(`[CRON-OC] Búsqueda completada. Nuevas OC encontradas: ${nuevasOC.length}`);
@@ -143,7 +143,7 @@ async function startServer() {
     console.log(`Servidor corriendo en puerto ${PORT}`);
     console.log(`Hora de inicio (Chile): ${horaChile}`);
     console.log(`Actualización automática de licitaciones: 18:00 hrs (Chile)`);
-    console.log(`Búsqueda automática de nuevas OC: 05:00 hrs (Chile)`);
+    console.log(`Búsqueda automática de nuevas OC: 23:00 hrs (Chile)`);
     
     // Log para verificar próximas ejecuciones del CRON
     console.log(`[CRON] Próximas ejecuciones programadas - verificar que el servidor no se reinicie`);
