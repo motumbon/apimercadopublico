@@ -347,15 +347,17 @@ function App() {
       const resultado = await buscarOCManual();
       
       if (resultado.ordenes?.length > 0) {
-        setMensaje(`✓ ${resultado.ordenes.length} OC nuevas detectadas y guardadas`);
-        await cargarDatos();
-        await cargarNotificaciones();
+        setMensaje(`✓ ${resultado.ordenes.length} OC nuevas detectadas. Recargando página...`);
+        // Recargar la página después de 2 segundos para mostrar las OC
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
       } else {
         setMensaje(`Búsqueda completada. ${resultado.message || 'No se encontraron OC nuevas.'}`);
+        setImportandoNube(false);
       }
     } catch (err) {
       setError('Error: ' + err.message);
-    } finally {
       setImportandoNube(false);
     }
   }
