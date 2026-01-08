@@ -348,7 +348,7 @@ function App() {
       
       if (resultado.ordenes?.length > 0) {
         setMensaje(`✓ ${resultado.ordenes.length} OC nuevas detectadas y guardadas`);
-        await cargarLicitaciones();
+        await cargarDatos();
         await cargarNotificaciones();
       } else {
         setMensaje(`Búsqueda completada. ${resultado.message || 'No se encontraron OC nuevas.'}`);
