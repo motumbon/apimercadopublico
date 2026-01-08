@@ -145,6 +145,26 @@ export async function initDatabase() {
   
   database.run(`CREATE INDEX IF NOT EXISTS idx_ordenes_licitacion ON ordenes_compra(licitacion_codigo)`);
   
+  // Tabla de items/productos de órdenes de compra
+  database.run(`
+    CREATE TABLE IF NOT EXISTS items_oc (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      oc_codigo TEXT NOT NULL,
+      correlativo INTEGER,
+      categoria TEXT,
+      producto TEXT,
+      especificacion_comprador TEXT,
+      especificacion_proveedor TEXT,
+      cantidad REAL,
+      unidad TEXT,
+      precio_neto REAL,
+      total REAL,
+      FOREIGN KEY (oc_codigo) REFERENCES ordenes_compra(codigo)
+    )
+  `);
+  
+  database.run(`CREATE INDEX IF NOT EXISTS idx_items_oc ON items_oc(oc_codigo)`);
+  
   // Tabla de notificaciones
   database.run(`
     CREATE TABLE IF NOT EXISTS notificaciones (
@@ -235,6 +255,40 @@ export async function guardarOrdenCompra(orden) {
   `, [orden.codigo, orden.licitacion_codigo, orden.nombre, orden.estado, orden.estado_codigo, orden.proveedor, orden.proveedor_rut, orden.monto, orden.moneda, orden.fecha_envio, orden.fecha_aceptacion]);
   
   saveDatabase();
+}
+
+export async function guardarItemsOC(ocCodigo, items) {
+  const database = await getDatabase();
+  
+  // Eliminar items anteriores de esta OC
+  database.run(`DELETE FROM items_oc WHERE oc_codigo = ?`, [ocCodigo]);
+  
+  // Insertar nuevos items
+  for (const item of items) {
+    database.run(`
+      INSERT INTO items_oc (oc_codigo, correlativo, categoria, producto, especificacion_comprador, especificacion_proveedor, cantidad, unidad, precio_neto, total)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      ocCodigo,
+      item.Correlativo || 0,
+      item.Categoria || '',
+      item.Producto || '',
+      item.EspecificacionComprador || '',
+      item.EspecificacionProveedor || '',
+      item.Cantidad || 0,
+      item.Unidad || '',
+      item.PrecioNeto || 0,
+      item.Total || 0
+    ]);
+  }
+  
+  saveDatabase();
+}
+
+export async function obtenerItemsOC(ocCodigo) {
+  const database = await getDatabase();
+  const result = database.exec(`SELECT * FROM items_oc WHERE oc_codigo = ? ORDER BY correlativo`, [ocCodigo]);
+  return resultToObjects(result);
 }
 
 function resultToObjects(result) {

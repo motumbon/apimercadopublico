@@ -1,6 +1,6 @@
 import express from 'express';
 import { buscarOrdenCompra } from '../services/mercadoPublico.js';
-import { obtenerOrdenesDeCompra } from '../db/database.js';
+import { obtenerOrdenesDeCompra, obtenerItemsOC, guardarItemsOC } from '../db/database.js';
 
 const router = express.Router();
 
@@ -34,6 +34,29 @@ router.get('/buscar/:codigo', async (req, res) => {
     }
     
     res.json({ success: true, data: orden });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Obtener items/productos de una OC
+router.get('/:codigo/items', async (req, res) => {
+  try {
+    const { codigo } = req.params;
+    
+    // Primero intentar obtener de la BD
+    let items = await obtenerItemsOC(codigo);
+    
+    // Si no hay items en BD, obtener de la API y guardar
+    if (items.length === 0) {
+      const orden = await buscarOrdenCompra(codigo);
+      if (orden && orden.Items?.Listado) {
+        await guardarItemsOC(codigo, orden.Items.Listado);
+        items = await obtenerItemsOC(codigo);
+      }
+    }
+    
+    res.json({ success: true, items });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

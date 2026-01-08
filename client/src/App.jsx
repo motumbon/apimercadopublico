@@ -22,7 +22,8 @@ import {
   Bell,
   BellRing,
   ExternalLink,
-  Cloud
+  Cloud,
+  Package
 } from 'lucide-react';
 import {
   obtenerLicitaciones,
@@ -55,7 +56,8 @@ import {
   marcarTodasNotificacionesLeidas,
   eliminarNotificacion,
   eliminarTodasNotificaciones,
-  buscarOCManual
+  buscarOCManual,
+  obtenerItemsOC
 } from './services/api';
 
 function App() {
@@ -74,6 +76,9 @@ function App() {
   const [codigoBusqueda, setCodigoBusqueda] = useState('');
   const [expandida, setExpandida] = useState(null);
   const [ordenesExpandidas, setOrdenesExpandidas] = useState({});
+  const [itemsExpandidos, setItemsExpandidos] = useState({}); // { codigoOC: items[] }
+  const [ocExpandida, setOcExpandida] = useState(null); // codigo de OC expandida
+  const [cargandoItems, setCargandoItems] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje] = useState(null);
   const [error, setError] = useState(null);
@@ -568,6 +573,29 @@ function App() {
       }, 100);
     } catch (err) {
       setError('Error al navegar a la licitación: ' + err.message);
+    }
+  }
+
+  async function toggleItemsOC(codigoOC) {
+    if (ocExpandida === codigoOC) {
+      // Si ya está expandida, cerrarla
+      setOcExpandida(null);
+      return;
+    }
+    
+    // Expandir y cargar items si no están cargados
+    setOcExpandida(codigoOC);
+    
+    if (!itemsExpandidos[codigoOC]) {
+      setCargandoItems(true);
+      try {
+        const items = await obtenerItemsOC(codigoOC);
+        setItemsExpandidos(prev => ({ ...prev, [codigoOC]: items }));
+      } catch (err) {
+        setError('Error al cargar items: ' + err.message);
+      } finally {
+        setCargandoItems(false);
+      }
     }
   }
 
@@ -1353,39 +1381,87 @@ function App() {
                         ) : (
                           <div className="space-y-3">
                             {ordenesExpandidas[lic.codigo].map((orden) => (
-                              <div key={orden.codigo} className="bg-white rounded-lg p-4 border border-slate-200">
-                                <div className="flex items-start justify-between">
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <a 
-                                        href={`https://www.mercadopublico.cl/PurchaseOrder/Modules/PO/DetailsPurchaseOrder.aspx?codigoOC=${orden.codigo}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="font-mono text-sm font-medium text-green-600 hover:text-green-800 hover:underline flex items-center gap-1"
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        {orden.codigo}
-                                        <ExternalLink className="w-3 h-3" />
-                                      </a>
-                                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getEstadoColor(orden.estado)}`}>
-                                        {orden.estado}
-                                      </span>
+                              <div key={orden.codigo} className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                                <div 
+                                  className="p-4 cursor-pointer hover:bg-slate-50 transition-colors"
+                                  onClick={() => toggleItemsOC(orden.codigo)}
+                                >
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <button className="text-slate-400 hover:text-slate-600">
+                                          <ChevronDown className={`w-4 h-4 transition-transform ${ocExpandida === orden.codigo ? 'rotate-180' : ''}`} />
+                                        </button>
+                                        <a 
+                                          href={`https://www.mercadopublico.cl/PurchaseOrder/Modules/PO/DetailsPurchaseOrder.aspx?codigoOC=${orden.codigo}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="font-mono text-sm font-medium text-green-600 hover:text-green-800 hover:underline flex items-center gap-1"
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          {orden.codigo}
+                                          <ExternalLink className="w-3 h-3" />
+                                        </a>
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getEstadoColor(orden.estado)}`}>
+                                          {orden.estado}
+                                        </span>
+                                      </div>
+                                      <p className="text-sm text-slate-900 truncate ml-6">{orden.nombre}</p>
+                                      <p className="text-sm text-slate-500 mt-1 ml-6">
+                                        <span className="font-medium">Proveedor:</span> {orden.proveedor || 'N/A'}
+                                      </p>
+                                      <p className="text-xs text-slate-400 mt-1 ml-6">
+                                        Envío: {formatearFecha(orden.fecha_envio)}
+                                      </p>
                                     </div>
-                                    <p className="text-sm text-slate-900 truncate">{orden.nombre}</p>
-                                    <p className="text-sm text-slate-500 mt-1">
-                                      <span className="font-medium">Proveedor:</span> {orden.proveedor || 'N/A'}
-                                    </p>
-                                    <p className="text-xs text-slate-400 mt-1">
-                                      Envío: {formatearFecha(orden.fecha_envio)}
-                                    </p>
-                                  </div>
-                                  <div className="text-right ml-4">
-                                    <p className="text-lg font-bold text-slate-900">
-                                      {formatearMonto(orden.monto, orden.moneda)}
-                                    </p>
-                                    <p className="text-xs text-slate-500">{orden.moneda}</p>
+                                    <div className="text-right ml-4">
+                                      <p className="text-lg font-bold text-slate-900">
+                                        {formatearMonto(orden.monto, orden.moneda)}
+                                      </p>
+                                      <p className="text-xs text-slate-500">{orden.moneda}</p>
+                                    </div>
                                   </div>
                                 </div>
+                                
+                                {/* Items/Productos de la OC */}
+                                {ocExpandida === orden.codigo && (
+                                  <div className="border-t border-slate-200 bg-slate-50 p-4">
+                                    <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                                      <Package className="w-4 h-4" />
+                                      Productos/Servicios
+                                    </h4>
+                                    {cargandoItems ? (
+                                      <div className="flex items-center gap-2 text-slate-500 text-sm">
+                                        <RefreshCw className="w-4 h-4 animate-spin" />
+                                        Cargando items...
+                                      </div>
+                                    ) : itemsExpandidos[orden.codigo]?.length > 0 ? (
+                                      <div className="space-y-2">
+                                        <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-slate-500 pb-2 border-b border-slate-200">
+                                          <div className="col-span-1">Cant.</div>
+                                          <div className="col-span-6">Producto/Material</div>
+                                          <div className="col-span-2 text-right">P. Unit.</div>
+                                          <div className="col-span-3 text-right">Total</div>
+                                        </div>
+                                        {itemsExpandidos[orden.codigo].map((item, idx) => (
+                                          <div key={idx} className="grid grid-cols-12 gap-2 text-sm py-2 border-b border-slate-100 last:border-0">
+                                            <div className="col-span-1 font-medium">{item.cantidad}</div>
+                                            <div className="col-span-6">
+                                              <p className="font-medium text-slate-900">{item.especificacion_proveedor || item.producto}</p>
+                                              {item.especificacion_comprador && (
+                                                <p className="text-xs text-slate-500 mt-0.5">{item.especificacion_comprador}</p>
+                                              )}
+                                            </div>
+                                            <div className="col-span-2 text-right text-slate-600">{formatearMonto(item.precio_neto)}</div>
+                                            <div className="col-span-3 text-right font-semibold text-slate-900">{formatearMonto(item.total)}</div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-sm text-slate-500">No se encontraron items para esta OC</p>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             ))}
                             <div className="mt-4 pt-4 border-t border-slate-200">
