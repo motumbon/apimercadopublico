@@ -5,7 +5,8 @@ import {
   obtenerTodasLasLicitaciones,
   actualizarLicitacionSinUsuario,
   crearNotificacion,
-  verificarOCExiste
+  verificarOCExiste,
+  guardarItemsOC
 } from '../db/database.js';
 
 const API_BASE = 'https://api.mercadopublico.cl/servicios/v1/publico';
@@ -141,7 +142,8 @@ export async function buscarOrdenCompra(codigo) {
       moneda: orden.TipoMoneda || 'CLP',
       fecha_envio: orden.Fechas?.FechaEnvio || orden.FechaEnvio || '',
       fecha_aceptacion: orden.Fechas?.FechaAceptacion || orden.FechaAceptacion || '',
-      licitacion_codigo: orden.Licitacion || ''
+      licitacion_codigo: orden.CodigoLicitacion || orden.Licitacion || '',
+      Items: orden.Items || null
     };
   } catch (error) {
     console.error('Error buscando orden de compra:', error.message);
@@ -532,6 +534,13 @@ export async function buscarNuevasOCDelDia() {
                 };
                 
                 await guardarOrdenCompra(ordenFormateada);
+                
+                // Guardar items/productos de la OC automáticamente
+                if (detalle.Items?.Listado && detalle.Items.Listado.length > 0) {
+                  await guardarItemsOC(orden.Codigo, detalle.Items.Listado);
+                  console.log(`[AUTO-OC] ✓ Items guardados: ${detalle.Items.Listado.length} productos`);
+                }
+                
                 ordenesEncontradas.push(ordenFormateada);
                 console.log(`[AUTO-OC] ✓ Guardada: ${orden.Codigo} - $${ordenFormateada.monto.toLocaleString('es-CL')}`);
               } catch (e) {

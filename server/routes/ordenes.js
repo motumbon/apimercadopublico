@@ -39,24 +39,36 @@ router.get('/buscar/:codigo', async (req, res) => {
   }
 });
 
-// Obtener items/productos de una OC
+// Obtener items/productos de una OC (solo de BD, sin llamar a API)
 router.get('/:codigo/items', async (req, res) => {
   try {
     const { codigo } = req.params;
+    const items = await obtenerItemsOC(codigo);
+    res.json({ success: true, items });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Actualizar items de una OC desde la API
+router.post('/:codigo/actualizar-items', async (req, res) => {
+  try {
+    const { codigo } = req.params;
+    console.log('[API] Actualizando items de OC:', codigo);
     
-    // Primero intentar obtener de la BD
-    let items = await obtenerItemsOC(codigo);
-    
-    // Si no hay items en BD, obtener de la API y guardar
-    if (items.length === 0) {
-      const orden = await buscarOrdenCompra(codigo);
-      if (orden && orden.Items?.Listado) {
-        await guardarItemsOC(codigo, orden.Items.Listado);
-        items = await obtenerItemsOC(codigo);
-      }
+    const orden = await buscarOrdenCompra(codigo);
+    if (!orden) {
+      return res.status(404).json({ success: false, error: 'OC no encontrada en Mercado Público' });
     }
     
-    res.json({ success: true, items });
+    if (orden.Items?.Listado && orden.Items.Listado.length > 0) {
+      await guardarItemsOC(codigo, orden.Items.Listado);
+      const items = await obtenerItemsOC(codigo);
+      console.log(`[API] Items actualizados para OC ${codigo}: ${items.length} items`);
+      res.json({ success: true, items, mensaje: `${items.length} items actualizados` });
+    } else {
+      res.json({ success: true, items: [], mensaje: 'No se encontraron items para esta OC' });
+    }
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

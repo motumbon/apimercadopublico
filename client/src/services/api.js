@@ -143,6 +143,16 @@ export async function obtenerItemsOC(codigoOC) {
   return data.items;
 }
 
+export async function actualizarItemsOC(codigoOC) {
+  const res = await fetch(`${API_BASE}/ordenes/${encodeURIComponent(codigoOC)}/actualizar-items`, {
+    method: 'POST',
+    headers: authHeaders()
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error);
+  return data;
+}
+
 export async function actualizarLicitacion(codigo) {
   const res = await fetch(`${API_BASE}/licitaciones/${encodeURIComponent(codigo)}/actualizar`, {
     method: 'POST',

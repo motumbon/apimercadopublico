@@ -57,7 +57,8 @@ import {
   eliminarNotificacion,
   eliminarTodasNotificaciones,
   buscarOCManual,
-  obtenerItemsOC
+  obtenerItemsOC,
+  actualizarItemsOC
 } from './services/api';
 
 function App() {
@@ -79,6 +80,7 @@ function App() {
   const [itemsExpandidos, setItemsExpandidos] = useState({}); // { codigoOC: items[] }
   const [ocExpandida, setOcExpandida] = useState(null); // codigo de OC expandida
   const [cargandoItems, setCargandoItems] = useState(false);
+  const [actualizandoItems, setActualizandoItems] = useState(null); // codigo de OC actualizando
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje] = useState(null);
   const [error, setError] = useState(null);
@@ -578,24 +580,40 @@ function App() {
 
   async function toggleItemsOC(codigoOC) {
     if (ocExpandida === codigoOC) {
-      // Si ya está expandida, cerrarla
       setOcExpandida(null);
       return;
     }
     
-    // Expandir y cargar items si no están cargados
     setOcExpandida(codigoOC);
     
+    // Cargar items de BD si no están cargados
     if (!itemsExpandidos[codigoOC]) {
       setCargandoItems(true);
       try {
         const items = await obtenerItemsOC(codigoOC);
         setItemsExpandidos(prev => ({ ...prev, [codigoOC]: items }));
       } catch (err) {
-        setError('Error al cargar items: ' + err.message);
+        // No mostrar error, simplemente no hay items
       } finally {
         setCargandoItems(false);
       }
+    }
+  }
+
+  async function handleActualizarItemsOC(codigoOC, e) {
+    e.stopPropagation();
+    setActualizandoItems(codigoOC);
+    setError(null);
+    
+    try {
+      const resultado = await actualizarItemsOC(codigoOC);
+      setItemsExpandidos(prev => ({ ...prev, [codigoOC]: resultado.items }));
+      setMensaje(`Items actualizados: ${resultado.items.length} productos`);
+      setOcExpandida(codigoOC); // Expandir para mostrar items
+    } catch (err) {
+      setError('Error al actualizar items: ' + err.message);
+    } finally {
+      setActualizandoItems(null);
     }
   }
 
@@ -1414,11 +1432,21 @@ function App() {
                                         Envío: {formatearFecha(orden.fecha_envio)}
                                       </p>
                                     </div>
-                                    <div className="text-right ml-4">
-                                      <p className="text-lg font-bold text-slate-900">
-                                        {formatearMonto(orden.monto, orden.moneda)}
-                                      </p>
-                                      <p className="text-xs text-slate-500">{orden.moneda}</p>
+                                    <div className="text-right ml-4 flex items-start gap-2">
+                                      <div>
+                                        <p className="text-lg font-bold text-slate-900">
+                                          {formatearMonto(orden.monto, orden.moneda)}
+                                        </p>
+                                        <p className="text-xs text-slate-500">{orden.moneda}</p>
+                                      </div>
+                                      <button
+                                        onClick={(e) => handleActualizarItemsOC(orden.codigo, e)}
+                                        disabled={actualizandoItems === orden.codigo}
+                                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+                                        title="Actualizar detalle de productos"
+                                      >
+                                        <RefreshCw className={`w-4 h-4 ${actualizandoItems === orden.codigo ? 'animate-spin' : ''}`} />
+                                      </button>
                                     </div>
                                   </div>
                                 </div>
