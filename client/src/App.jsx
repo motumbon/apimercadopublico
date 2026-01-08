@@ -1316,7 +1316,16 @@ function App() {
                                 <div className="flex items-start justify-between">
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-1">
-                                      <span className="font-mono text-sm font-medium text-green-600">{orden.codigo}</span>
+                                      <a 
+                                        href={`https://www.mercadopublico.cl/PurchaseOrder/Modules/PO/DetailsPurchaseOrder.aspx?codigoOC=${orden.codigo}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="font-mono text-sm font-medium text-green-600 hover:text-green-800 hover:underline flex items-center gap-1"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        {orden.codigo}
+                                        <ExternalLink className="w-3 h-3" />
+                                      </a>
                                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getEstadoColor(orden.estado)}`}>
                                         {orden.estado}
                                       </span>
