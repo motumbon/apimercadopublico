@@ -254,6 +254,30 @@ export async function obtenerLicitaciones(userId) {
   return resultToObjects(result);
 }
 
+export async function obtenerTodasLasLicitaciones() {
+  const database = await getDatabase();
+  const result = database.exec('SELECT * FROM licitaciones ORDER BY fecha_agregada DESC');
+  return resultToObjects(result);
+}
+
+export async function actualizarLicitacionSinUsuario(licitacion) {
+  const database = await getDatabase();
+  
+  database.run(`
+    UPDATE licitaciones SET
+      nombre = ?,
+      estado = ?,
+      estado_codigo = ?,
+      fecha_cierre = ?,
+      organismo = ?,
+      monto_estimado = ?,
+      ultima_actualizacion = datetime('now')
+    WHERE codigo = ?
+  `, [licitacion.nombre, licitacion.estado, licitacion.estado_codigo, licitacion.fecha_cierre, licitacion.organismo, licitacion.monto_estimado, licitacion.codigo]);
+  
+  saveDatabase();
+}
+
 export async function obtenerLicitacionPorCodigo(codigo, userId) {
   const database = await getDatabase();
   const stmt = database.prepare('SELECT * FROM licitaciones WHERE codigo = ? AND user_id = ?');

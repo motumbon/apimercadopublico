@@ -2,7 +2,8 @@ import axios from 'axios';
 import { 
   guardarLicitacion, 
   guardarOrdenCompra, 
-  obtenerLicitaciones,
+  obtenerTodasLasLicitaciones,
+  actualizarLicitacionSinUsuario,
   crearNotificacion,
   verificarOCExiste
 } from '../db/database.js';
@@ -336,15 +337,15 @@ export async function agregarYGuardarLicitacion(codigo, rutProveedor = null) {
     throw new Error('Licitación no encontrada');
   }
   
-  await guardarLicitacion({
+  // Actualizar solo los datos de la licitación (sin cambiar user_id)
+  await actualizarLicitacionSinUsuario({
     codigo: licitacion.codigo,
     nombre: licitacion.nombre,
     estado: licitacion.estado,
     estado_codigo: licitacion.estado_codigo,
     fecha_cierre: licitacion.fecha_cierre,
     organismo: licitacion.organismo,
-    monto_estimado: licitacion.monto_estimado,
-    rut_proveedor: rutProveedor
+    monto_estimado: licitacion.monto_estimado
   });
   
   const ordenes = await buscarOrdenesDeCompraPorLicitacion(codigo, rutProveedor);
@@ -394,7 +395,7 @@ export async function actualizarLicitacion(codigo) {
 }
 
 export async function actualizarTodasLasLicitaciones() {
-  const licitaciones = await obtenerLicitaciones();
+  const licitaciones = await obtenerTodasLasLicitaciones();
   const resultados = [];
   
   for (const lic of licitaciones) {
@@ -435,7 +436,7 @@ export async function buscarNuevasOCDelDia() {
   const estados = ['aceptada', 'enviada'];
   
   // Obtener todas las licitaciones guardadas (de todos los usuarios)
-  const licitacionesGuardadas = await obtenerLicitaciones();
+  const licitacionesGuardadas = await obtenerTodasLasLicitaciones();
   const codigosLicitaciones = new Set(licitacionesGuardadas.map(l => l.codigo));
   
   console.log(`[AUTO-OC] Licitaciones en BD: ${codigosLicitaciones.size}`);
