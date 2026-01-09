@@ -446,14 +446,14 @@ function App() {
       resultado = resultado.filter(l => l.linea === filtroLinea);
     }
     
-    // Filtrar por mes de OC
+    // Filtrar por mes de OC (sin importar el año)
     if (filtroMesOC) {
       resultado = resultado.filter(l => {
         const ordenes = ordenesExpandidas[l.codigo] || [];
         return ordenes.some(oc => {
           const fechaOC = oc.fecha_envio || oc.fecha_aceptacion;
           if (!fechaOC) return false;
-          const mesOC = fechaOC.substring(0, 7); // formato YYYY-MM
+          const mesOC = fechaOC.substring(5, 7); // solo el mes (posiciones 5-6 de YYYY-MM-DD)
           return mesOC === filtroMesOC;
         });
       });
@@ -1153,20 +1153,18 @@ function App() {
               className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg"
             >
               <option value="">Todos los meses</option>
-              {(() => {
-                const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
-                               'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-                const opciones = [];
-                const hoy = new Date();
-                // Generar 24 meses: 12 hacia adelante y 12 hacia atrás desde hoy
-                for (let i = 12; i >= -12; i--) {
-                  const fecha = new Date(hoy.getFullYear(), hoy.getMonth() + i, 1);
-                  const valor = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
-                  const texto = `${meses[fecha.getMonth()]} ${fecha.getFullYear()}`;
-                  opciones.push(<option key={valor} value={valor}>{texto}</option>);
-                }
-                return opciones;
-              })()}
+              <option value="01">Enero</option>
+              <option value="02">Febrero</option>
+              <option value="03">Marzo</option>
+              <option value="04">Abril</option>
+              <option value="05">Mayo</option>
+              <option value="06">Junio</option>
+              <option value="07">Julio</option>
+              <option value="08">Agosto</option>
+              <option value="09">Septiembre</option>
+              <option value="10">Octubre</option>
+              <option value="11">Noviembre</option>
+              <option value="12">Diciembre</option>
             </select>
             {(filtroInstitucion || filtroLinea || ordenarPor || filtroMesOC) && (
               <button
