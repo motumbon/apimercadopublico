@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "a55825b4-0d8b-40b4-a030-56d0848039a0"
+      }
+    },
+    "android": {
+      "package": "com.motumbon.seguimientolicitacionesmp"
+    }
+  }
+}

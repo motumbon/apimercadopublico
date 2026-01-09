@@ -27,19 +27,12 @@ export const DataProvider = ({ children }) => {
   const [filtroMes, setFiltroMes] = useState('');
   const [ordenarPor, setOrdenarPor] = useState('');
 
-  // Cargar datos al autenticarse
+  // Cargar datos solo al autenticarse (sin polling automático)
+  // La actualización se hace manualmente con pull-to-refresh
   useEffect(() => {
     if (isAuthenticated) {
       cargarDatos();
       cargarNotificaciones();
-      
-      // Polling cada 2 minutos para sincronización
-      const interval = setInterval(() => {
-        cargarDatos(true);
-        cargarNotificaciones();
-      }, 2 * 60 * 1000);
-      
-      return () => clearInterval(interval);
     }
   }, [isAuthenticated]);
 
@@ -48,35 +41,62 @@ export const DataProvider = ({ children }) => {
     else setRefreshing(true);
     
     try {
-      const [licsRes, instsRes, linsRes] = await Promise.all([
-        licitacionesAPI.getAll(),
-        institucionesAPI.getAll(),
-        institucionesAPI.getLineas()
-      ]);
+      console.log('📥 Cargando datos...');
       
-      setLicitaciones(licsRes.data.data || []);
-      setInstituciones(instsRes.data.data || []);
-      setLineas(linsRes.data.data || []);
+      // Cargar licitaciones primero
+      const licsRes = await licitacionesAPI.getAll();
+      console.log('📋 Licitaciones response:', JSON.stringify(licsRes.data));
+      
+      const licitacionesData = licsRes.data.data || licsRes.data || [];
+      setLicitaciones(licitacionesData);
+      console.log('✅ Licitaciones cargadas:', licitacionesData.length);
+      
+      // Cargar instituciones y líneas
+      let institucionesData = [];
+      let lineasData = [];
+      
+      try {
+        const instsRes = await institucionesAPI.getAll();
+        institucionesData = instsRes.data.data || instsRes.data || [];
+      } catch (e) {
+        console.log('⚠️ Error cargando instituciones:', e.message);
+      }
+      
+      try {
+        const linsRes = await institucionesAPI.getLineas();
+        lineasData = linsRes.data.data || linsRes.data || [];
+      } catch (e) {
+        console.log('⚠️ Error cargando líneas:', e.message);
+      }
+      
+      setInstituciones(institucionesData);
+      setLineas(lineasData);
       
       // Cargar saldos y órdenes de cada licitación
       const newSaldos = {};
       const newOrdenes = {};
       
-      for (const lic of (licsRes.data.data || [])) {
+      for (const lic of licitacionesData) {
         try {
           const [saldoRes, ordenesRes] = await Promise.all([
             licitacionesAPI.getSaldo(lic.codigo),
             licitacionesAPI.getOne(lic.codigo)
           ]);
-          newSaldos[lic.codigo] = saldoRes.data;
-          newOrdenes[lic.codigo] = ordenesRes.data.ordenes || [];
-        } catch (e) {}
+          // El servidor devuelve { success, data: { montoTotalLicitacion, montoOC, saldo } }
+          newSaldos[lic.codigo] = saldoRes.data.data || saldoRes.data;
+          const ordenesData = ordenesRes.data.ordenes || ordenesRes.data.data?.ordenes || [];
+          newOrdenes[lic.codigo] = ordenesData;
+        } catch (e) {
+          console.log(`⚠️ Error cargando datos de ${lic.codigo}:`, e.message);
+        }
       }
       
       setSaldos(newSaldos);
       setOrdenesPorLicitacion(newOrdenes);
       setError(null);
+      console.log('✅ Datos cargados completamente');
     } catch (e) {
+      console.log('❌ Error cargando datos:', e.message);
       setError(e.message);
     } finally {
       setLoading(false);

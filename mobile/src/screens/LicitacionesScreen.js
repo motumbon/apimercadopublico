@@ -9,12 +9,13 @@ import {
   Modal,
   RefreshControl,
   ActivityIndicator,
-  Alert
+  Alert,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { useData } from '../contexts/DataContext';
-import { formatearMonto, formatearFecha } from '../config/api';
+import { formatearMonto, formatearFecha, ordenesAPI } from '../config/api';
 
 const COLORS = {
   primary: '#1e40af',
@@ -72,6 +73,7 @@ export default function LicitacionesScreen({ navigation, route }) {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [codigoNuevo, setCodigoNuevo] = useState('');
   const [agregando, setAgregando] = useState(false);
+  const [buscandoOC, setBuscandoOC] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -125,6 +127,27 @@ export default function LicitacionesScreen({ navigation, route }) {
     );
   };
 
+  const handleBuscarOC = async () => {
+    setBuscandoOC(true);
+    try {
+      const res = await ordenesAPI.buscarNuevasOC();
+      const data = res.data;
+      if (data.success) {
+        await cargarDatos(true);
+        Alert.alert(
+          'Búsqueda completada',
+          data.message || `Se encontraron ${data.ordenes?.length || 0} nuevas OC`
+        );
+      } else {
+        Alert.alert('Error', data.error || 'Error al buscar OC');
+      }
+    } catch (e) {
+      Alert.alert('Error', e.response?.data?.error || e.message || 'Error al buscar OC');
+    } finally {
+      setBuscandoOC(false);
+    }
+  };
+
   const getEstadoColor = (estado) => {
     const colores = {
       'Publicada': { bg: '#dbeafe', text: '#1e40af' },
@@ -165,13 +188,32 @@ export default function LicitacionesScreen({ navigation, route }) {
 
         <Text style={styles.licNombre} numberOfLines={2}>{lic.nombre}</Text>
 
-        {institucion && (
-          <View style={styles.institucionRow}>
-            <Ionicons name="business-outline" size={14} color={COLORS.textLight} />
-            <Text style={styles.institucionText}>{institucion.nombre}</Text>
-            {lic.linea && <Text style={styles.lineaText}>• {lic.linea}</Text>}
+        {/* Institución y Línea */}
+        <View style={styles.institucionRow}>
+          <Ionicons name="business-outline" size={14} color={COLORS.textLight} />
+          <Text style={styles.institucionText}>
+            {institucion ? institucion.nombre : 'Sin asignar'}
+          </Text>
+          {lic.linea && <Text style={styles.lineaText}>• {lic.linea}</Text>}
+        </View>
+
+        {/* Montos principales */}
+        <View style={styles.montosRow}>
+          <View style={styles.montoItem}>
+            <Text style={styles.montoLabel}>Monto Licitación</Text>
+            <Text style={styles.montoValue}>
+              {lic.monto_total_licitacion ? formatearMonto(lic.monto_total_licitacion) : 'No definido'}
+            </Text>
           </View>
-        )}
+          {lic.fecha_vencimiento && (
+            <View style={styles.montoItem}>
+              <Text style={styles.montoLabel}>Vencimiento</Text>
+              <Text style={[styles.montoValue, { color: COLORS.warning }]}>
+                {formatearFecha(lic.fecha_vencimiento)}
+              </Text>
+            </View>
+          )}
+        </View>
 
         <View style={styles.licFooter}>
           <View style={styles.footerItem}>
@@ -191,15 +233,6 @@ export default function LicitacionesScreen({ navigation, route }) {
             </Text>
           </View>
         </View>
-
-        {lic.fecha_vencimiento && (
-          <View style={styles.vencimientoRow}>
-            <Ionicons name="calendar-outline" size={14} color={COLORS.warning} />
-            <Text style={styles.vencimientoText}>
-              Vence: {formatearFecha(lic.fecha_vencimiento)}
-            </Text>
-          </View>
-        )}
       </TouchableOpacity>
     );
   };
@@ -214,6 +247,21 @@ export default function LicitacionesScreen({ navigation, route }) {
         >
           <Ionicons name="add" size={20} color={COLORS.white} />
           <Text style={styles.addButtonText}>Agregar</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.searchOCButton, buscandoOC && styles.searchOCButtonDisabled]}
+          onPress={handleBuscarOC}
+          disabled={buscandoOC}
+        >
+          {buscandoOC ? (
+            <ActivityIndicator size="small" color={COLORS.white} />
+          ) : (
+            <Ionicons name="search" size={18} color={COLORS.white} />
+          )}
+          <Text style={styles.searchOCButtonText}>
+            {buscandoOC ? 'Buscando...' : 'Buscar OC'}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -426,6 +474,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 15
   },
+  searchOCButton: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.success,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6
+  },
+  searchOCButtonDisabled: {
+    backgroundColor: COLORS.textLight
+  },
+  searchOCButtonText: {
+    color: COLORS.white,
+    fontWeight: '600',
+    fontSize: 14
+  },
   filterButton: {
     flexDirection: 'row',
     backgroundColor: COLORS.white,
@@ -518,6 +584,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.secondary,
     fontWeight: '500'
+  },
+  montosRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
+    gap: 15
+  },
+  montoItem: {
+    flex: 1
+  },
+  montoLabel: {
+    fontSize: 11,
+    color: COLORS.textLight,
+    marginBottom: 2
+  },
+  montoValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.text
   },
   licFooter: {
     flexDirection: 'row',

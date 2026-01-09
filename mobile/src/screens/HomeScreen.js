@@ -6,7 +6,8 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
-  ActivityIndicator
+  ActivityIndicator,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useData } from '../contexts/DataContext';
@@ -29,7 +30,8 @@ const COLORS = {
 export default function HomeScreen({ navigation }) {
   const { user } = useAuth();
   const { 
-    licitaciones, 
+    licitaciones,
+    instituciones,
     saldos, 
     ordenesPorLicitacion,
     loading, 
@@ -37,6 +39,13 @@ export default function HomeScreen({ navigation }) {
     cargarDatos,
     contadorNotif
   } = useData();
+  
+  // Helper para obtener nombre de institución
+  const getNombreInstitucion = (institucionId) => {
+    if (!institucionId) return null;
+    const inst = instituciones.find(i => i.id === institucionId);
+    return inst ? inst.nombre : null;
+  };
 
   // Calcular estadísticas
   const totalLicitaciones = licitaciones.length;
@@ -171,6 +180,14 @@ export default function HomeScreen({ navigation }) {
                 </View>
               </View>
               <Text style={styles.licNombre} numberOfLines={2}>{lic.nombre}</Text>
+              {/* Institución y Línea */}
+              <View style={styles.institucionRow}>
+                <Ionicons name="business-outline" size={12} color={COLORS.textLight} />
+                <Text style={styles.institucionText}>
+                  {getNombreInstitucion(lic.institucion_id) || 'Sin asignar'}
+                </Text>
+                {lic.linea && <Text style={styles.lineaText}>• {lic.linea}</Text>}
+              </View>
               <View style={styles.licFooter}>
                 <Text style={styles.licMonto}>
                   {formatearMonto(saldos[lic.codigo]?.montoOC || 0)}
@@ -338,7 +355,22 @@ const styles = StyleSheet.create({
   licNombre: {
     fontSize: 14,
     color: COLORS.text,
+    marginBottom: 6
+  },
+  institucionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     marginBottom: 10
+  },
+  institucionText: {
+    fontSize: 12,
+    color: COLORS.textLight
+  },
+  lineaText: {
+    fontSize: 12,
+    color: COLORS.secondary,
+    fontWeight: '500'
   },
   licFooter: {
     flexDirection: 'row',

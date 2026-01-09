@@ -71,13 +71,16 @@ export const ordenesAPI = {
   getByLicitacion: (codigo) => api.get(`/ordenes/licitacion/${codigo}`),
   getItems: (codigo) => api.get(`/ordenes/${codigo}/items`),
   actualizarItems: (codigo) => api.post(`/ordenes/${codigo}/actualizar-items`),
-  buscarManual: (codigo) => api.post('/ordenes/buscar-manual', { codigo })
+  buscarManual: (codigo) => api.post('/ordenes/buscar-manual', { codigo }),
+  buscarNuevasOC: () => api.get('/test/buscar-oc-ayer')
 };
 
 // Instituciones API
 export const institucionesAPI = {
-  getAll: () => api.get('/licitaciones/instituciones'),
-  getLineas: () => api.get('/licitaciones/lineas')
+  getAll: () => api.get('/licitaciones/instituciones/lista'),
+  getLineas: () => api.get('/licitaciones/instituciones/lineas'),
+  crear: (nombre) => api.post('/licitaciones/instituciones/crear', { nombre }),
+  eliminar: (id) => api.delete(`/licitaciones/instituciones/${id}`)
 };
 
 // Notificaciones API

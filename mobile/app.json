@@ -7,8 +7,6 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
       "backgroundColor": "#1e40af"
     },
     "assetBundlePatterns": [
@@ -19,31 +17,49 @@
       "bundleIdentifier": "com.seguimientooc.app"
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1e40af"
-      },
       "package": "com.seguimientooc.app",
-      "useNextNotificationsApi": true
+      "permissions": [
+        "INTERNET",
+        "POST_NOTIFICATIONS"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#1e40af"
+      }
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
+    "web": {},
+    "extra": {
+      "apiUrl": "https://web-production-fe1d1.up.railway.app/api",
+      "eas": {
+        "projectId": "4c0421e4-574a-4efd-9d5d-595c9c00a1e6"
+      }
     },
     "plugins": [
-      "expo-font",
+      "expo-secure-store",
       [
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#1e40af"
+          "color": "#1e40af",
+          "mode": "production"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
         }
       ]
     ],
-    "extra": {
-      "apiUrl": "https://web-production-fe1d1.up.railway.app/api",
-      "eas": {
-        "projectId": "seguimiento-oc"
-      }
-    }
-  }
+    "notification": {
+      "icon": "./assets/icon.png",
+      "color": "#1e40af",
+      "androidMode": "default",
+      "androidCollapsedTitle": "Seguimiento OC"
+    },
+    "owner": "motumbon"
+  },
+  "owner": "motumbon"
 }

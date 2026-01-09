@@ -1,9 +1,11 @@
-import { obtenerTodosPushTokens } from '../db/database.js';
+import { obtenerTodosPushTokens, crearNotificacion } from '../db/database.js';
 
 // Enviar notificaciones push usando Expo Push API
 export async function enviarNotificacionPush(titulo, mensaje, data = {}) {
   try {
+    console.log(`[PUSH] Intentando enviar: "${titulo}" - "${mensaje}"`);
     const tokens = await obtenerTodosPushTokens();
+    console.log(`[PUSH] Tokens encontrados: ${tokens.length}`);
     
     if (tokens.length === 0) {
       console.log('[PUSH] No hay tokens registrados');
@@ -72,7 +74,10 @@ export async function enviarNotificacionPush(titulo, mensaje, data = {}) {
 
 // Notificar nuevas órdenes de compra
 export async function notificarNuevasOC(ordenesEncontradas) {
-  if (!ordenesEncontradas || ordenesEncontradas.length === 0) return;
+  if (!ordenesEncontradas || ordenesEncontradas.length === 0) {
+    console.log('[PUSH] No hay OC para notificar');
+    return;
+  }
   
   const cantidad = ordenesEncontradas.length;
   const montoTotal = ordenesEncontradas.reduce((sum, oc) => sum + (oc.monto || 0), 0);
@@ -80,9 +85,23 @@ export async function notificarNuevasOC(ordenesEncontradas) {
   const titulo = `🛒 ${cantidad} nueva${cantidad > 1 ? 's' : ''} OC detectada${cantidad > 1 ? 's' : ''}`;
   const mensaje = `Monto total: $${montoTotal.toLocaleString('es-CL')}`;
   
-  await enviarNotificacionPush(titulo, mensaje, {
+  console.log(`[PUSH] Notificando ${cantidad} nuevas OC, monto total: ${montoTotal}`);
+  
+  // Guardar notificación en la base de datos para que aparezca en la app
+  try {
+    await crearNotificacion('nueva_oc', titulo, mensaje, null, cantidad);
+    console.log('[PUSH] Notificación guardada en base de datos');
+  } catch (e) {
+    console.error('[PUSH] Error guardando notificación:', e.message);
+  }
+  
+  // Enviar push notification
+  const result = await enviarNotificacionPush(titulo, mensaje, {
     type: 'nueva_oc',
     cantidad: cantidad,
     monto: montoTotal
   });
+  
+  console.log(`[PUSH] Resultado envío push: ${result.sent} enviados`);
+  return result;
 }
