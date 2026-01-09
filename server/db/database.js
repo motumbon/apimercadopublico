@@ -204,6 +204,20 @@ export async function initDatabase() {
   
   database.run(`CREATE INDEX IF NOT EXISTS idx_notificaciones_leida ON notificaciones(leida)`);
   
+  // Tabla de tokens push para notificaciones móviles
+  database.run(`
+    CREATE TABLE IF NOT EXISTS push_tokens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      token TEXT NOT NULL UNIQUE,
+      platform TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES usuarios(id)
+    )
+  `);
+  
+  database.run(`CREATE INDEX IF NOT EXISTS idx_push_tokens_user ON push_tokens(user_id)`);
+  
   // Migrar columnas si no existen
   try {
     database.run(`ALTER TABLE licitaciones ADD COLUMN institucion_id INTEGER`);
@@ -689,4 +703,34 @@ export async function verificarOCExiste(codigoOC) {
   const result = database.exec('SELECT COUNT(*) as count FROM ordenes_compra WHERE codigo = ?', [codigoOC]);
   const rows = resultToObjects(result);
   return rows.length > 0 && rows[0].count > 0;
+}
+
+// Push tokens para notificaciones móviles
+export async function guardarPushToken(userId, token, platform) {
+  const database = await getDatabase();
+  // Eliminar token existente del usuario o token duplicado
+  database.run('DELETE FROM push_tokens WHERE user_id = ? OR token = ?', [userId, token]);
+  database.run(
+    'INSERT INTO push_tokens (user_id, token, platform) VALUES (?, ?, ?)',
+    [userId, token, platform]
+  );
+  saveDatabase();
+}
+
+export async function eliminarPushToken(userId) {
+  const database = await getDatabase();
+  database.run('DELETE FROM push_tokens WHERE user_id = ?', [userId]);
+  saveDatabase();
+}
+
+export async function obtenerTodosPushTokens() {
+  const database = await getDatabase();
+  const result = database.exec('SELECT * FROM push_tokens');
+  return resultToObjects(result);
+}
+
+export async function obtenerPushTokensPorUsuario(userId) {
+  const database = await getDatabase();
+  const result = database.exec('SELECT * FROM push_tokens WHERE user_id = ?', [userId]);
+  return resultToObjects(result);
 }

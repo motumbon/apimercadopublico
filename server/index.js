@@ -14,8 +14,10 @@ import licitacionesRoutes from './routes/licitaciones.js';
 import ordenesRoutes from './routes/ordenes.js';
 import authRoutes from './routes/auth.js';
 import notificacionesRoutes from './routes/notificaciones.js';
+import pushTokensRoutes from './routes/pushTokens.js';
 import { initDatabase } from './db/database.js';
 import { actualizarTodasLasLicitaciones, buscarNuevasOCDelDia } from './services/mercadoPublico.js';
+import { notificarNuevasOC } from './services/pushService.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -32,6 +34,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/licitaciones', licitacionesRoutes);
 app.use('/api/ordenes', ordenesRoutes);
 app.use('/api/notificaciones', notificacionesRoutes);
+app.use('/api/push-tokens', pushTokensRoutes);
 
 // Tarea programada: Actualización de licitaciones a las 18:00 hrs
 cron.schedule('0 18 * * *', async () => {
@@ -52,6 +55,11 @@ cron.schedule('0 23 * * *', async () => {
   try {
     const nuevasOC = await buscarNuevasOCDelDia();
     console.log(`[CRON-OC] Búsqueda completada. Nuevas OC encontradas: ${nuevasOC.length}`);
+    
+    // Enviar notificación push si hay nuevas OC
+    if (nuevasOC.length > 0) {
+      await notificarNuevasOC(nuevasOC);
+    }
   } catch (error) {
     console.error('[CRON-OC] Error en búsqueda automática de OC:', error);
   }
@@ -95,6 +103,12 @@ app.get('/api/test/buscar-oc-ayer', async (req, res) => {
   try {
     console.log('[TEST] Ejecutando búsqueda manual de OC del día anterior...');
     const nuevasOC = await buscarNuevasOCDelDia();
+    
+    // Enviar notificación push si hay nuevas OC
+    if (nuevasOC.length > 0) {
+      await notificarNuevasOC(nuevasOC);
+    }
+    
     res.json({ 
       success: true, 
       message: `Búsqueda completada. ${nuevasOC.length} OC encontradas.`,

@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "Seguimiento OC",
+    "slug": "seguimiento-oc",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1e40af"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.seguimientooc.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1e40af"
+      },
+      "package": "com.seguimientooc.app",
+      "useNextNotificationsApi": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#1e40af"
+        }
+      ]
+    ],
+    "extra": {
+      "apiUrl": "https://web-production-fe1d1.up.railway.app/api",
+      "eas": {
+        "projectId": "seguimiento-oc"
+      }
+    }
+  }
+}
