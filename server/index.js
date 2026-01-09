@@ -104,9 +104,15 @@ app.get('/api/test/buscar-oc-ayer', async (req, res) => {
     console.log('[TEST] Ejecutando búsqueda manual de OC del día anterior...');
     const nuevasOC = await buscarNuevasOCDelDia();
     
+    console.log(`[TEST] Búsqueda completada. ${nuevasOC.length} OC NUEVAS encontradas`);
+    
     // Enviar notificación push si hay nuevas OC
     if (nuevasOC.length > 0) {
+      console.log('[TEST] Enviando notificaciones push...');
       await notificarNuevasOC(nuevasOC);
+      console.log('[TEST] Notificaciones enviadas');
+    } else {
+      console.log('[TEST] No hay OC nuevas para notificar');
     }
     
     res.json({ 
@@ -115,6 +121,7 @@ app.get('/api/test/buscar-oc-ayer', async (req, res) => {
       ordenes: nuevasOC 
     });
   } catch (error) {
+    console.error('[TEST] Error:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
