@@ -110,7 +110,8 @@ export async function buscarLicitacion(codigo) {
       organismo: licitacion.Comprador?.NombreOrganismo || licitacion.NombreOrganismo || '',
       monto_estimado: licitacion.MontoEstimado || 0,
       adjudicaciones: licitacion.Items?.Listado || [],
-      adjudicacion_info: licitacion.Adjudicacion || null
+      adjudicacion_info: licitacion.Adjudicacion || null,
+      Items: licitacion.Items || null
     };
   } catch (error) {
     console.error('Error buscando licitación:', error.message);
