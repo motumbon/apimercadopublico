@@ -147,6 +147,29 @@ app.get('/api/test/buscar-oc/:fecha', async (req, res) => {
   }
 });
 
+// Endpoint de diagnóstico para verificar tokens push registrados
+app.get('/api/test/push-tokens', async (req, res) => {
+  try {
+    const { obtenerTodosPushTokens } = await import('./db/database.js');
+    const tokens = await obtenerTodosPushTokens();
+    console.log(`[DEBUG] Tokens push registrados: ${tokens.length}`);
+    tokens.forEach((t, i) => {
+      console.log(`[DEBUG] Token ${i + 1}: user_id=${t.user_id}, platform=${t.platform}, token=${t.token?.substring(0, 30)}...`);
+    });
+    res.json({ 
+      success: true, 
+      count: tokens.length,
+      tokens: tokens.map(t => ({
+        user_id: t.user_id,
+        platform: t.platform,
+        token_preview: t.token?.substring(0, 40) + '...'
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Catch-all para servir el frontend en producción (DEBE ir al final)
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../client/dist')));

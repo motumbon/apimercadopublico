@@ -1,4 +1,4 @@
-import { obtenerTodosPushTokens, crearNotificacion } from '../db/database.js';
+import { obtenerTodosPushTokens } from '../db/database.js';
 
 // Enviar notificaciones push usando Expo Push API
 export async function enviarNotificacionPush(titulo, mensaje, data = {}) {
@@ -72,11 +72,11 @@ export async function enviarNotificacionPush(titulo, mensaje, data = {}) {
   }
 }
 
-// Notificar nuevas órdenes de compra
+// Notificar nuevas órdenes de compra (solo push, la notificación en BD ya se crea en mercadoPublico.js)
 export async function notificarNuevasOC(ordenesEncontradas) {
   if (!ordenesEncontradas || ordenesEncontradas.length === 0) {
     console.log('[PUSH] No hay OC para notificar');
-    return;
+    return { sent: 0 };
   }
   
   const cantidad = ordenesEncontradas.length;
@@ -87,13 +87,7 @@ export async function notificarNuevasOC(ordenesEncontradas) {
   
   console.log(`[PUSH] Notificando ${cantidad} nuevas OC, monto total: ${montoTotal}`);
   
-  // Guardar notificación en la base de datos para que aparezca en la app
-  try {
-    await crearNotificacion('nueva_oc', titulo, mensaje, null, cantidad);
-    console.log('[PUSH] Notificación guardada en base de datos');
-  } catch (e) {
-    console.error('[PUSH] Error guardando notificación:', e.message);
-  }
+  // NO crear notificación en BD aquí - ya se crea en mercadoPublico.js para evitar duplicados
   
   // Enviar push notification
   const result = await enviarNotificacionPush(titulo, mensaje, {
