@@ -23,7 +23,8 @@ import {
   BellRing,
   ExternalLink,
   Cloud,
-  Package
+  Package,
+  Info
 } from 'lucide-react';
 import {
   obtenerLicitaciones,
@@ -58,7 +59,9 @@ import {
   eliminarTodasNotificaciones,
   buscarOCManual,
   obtenerItemsOC,
-  actualizarItemsOC
+  actualizarItemsOC,
+  obtenerItemsLicitacion,
+  actualizarItemsLicitacion
 } from './services/api';
 
 function App() {
@@ -81,6 +84,11 @@ function App() {
   const [ocExpandida, setOcExpandida] = useState(null); // codigo de OC expandida
   const [cargandoItems, setCargandoItems] = useState(false);
   const [actualizandoItems, setActualizandoItems] = useState(null); // codigo de OC actualizando
+  
+  // Modal de items de licitación
+  const [modalItemsLic, setModalItemsLic] = useState(null); // codigo de licitación para modal
+  const [itemsLicitacion, setItemsLicitacion] = useState({}); // { codigoLic: items[] }
+  const [cargandoItemsLic, setCargandoItemsLic] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje] = useState(null);
   const [error, setError] = useState(null);
@@ -634,6 +642,33 @@ function App() {
       setError('Error al actualizar items: ' + err.message);
     } finally {
       setActualizandoItems(null);
+    }
+  }
+
+  async function handleVerItemsLicitacion(codigoLic, e) {
+    e.stopPropagation();
+    setModalItemsLic(codigoLic);
+    
+    // Si ya tenemos items cargados, no llamar a la API
+    if (itemsLicitacion[codigoLic] && itemsLicitacion[codigoLic].length > 0) {
+      return;
+    }
+    
+    // Primero intentar obtener de BD
+    setCargandoItemsLic(true);
+    try {
+      const items = await obtenerItemsLicitacion(codigoLic);
+      if (items && items.length > 0) {
+        setItemsLicitacion(prev => ({ ...prev, [codigoLic]: items }));
+      } else {
+        // Si no hay en BD, obtener de API
+        const resultado = await actualizarItemsLicitacion(codigoLic);
+        setItemsLicitacion(prev => ({ ...prev, [codigoLic]: resultado.items }));
+      }
+    } catch (err) {
+      setError('Error al obtener items: ' + err.message);
+    } finally {
+      setCargandoItemsLic(false);
     }
   }
 
@@ -1290,6 +1325,14 @@ function App() {
                         >
                           <Edit3 className="w-5 h-5" />
                         </button>
+                        {/* Botón info (i) */}
+                        <button
+                          onClick={(e) => handleVerItemsLicitacion(lic.codigo, e)}
+                          className={`p-2 rounded-lg transition-colors ${itemsLicitacion[lic.codigo]?.length > 0 ? 'text-blue-600 bg-blue-50' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`}
+                          title="Ver productos de la licitación"
+                        >
+                          <Info className="w-5 h-5" />
+                        </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); handleEliminar(lic.codigo); }}
                           className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -1562,6 +1605,85 @@ function App() {
           </p>
         </div>
       </footer>
+
+      {/* Modal de items de licitación */}
+      {modalItemsLic && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setModalItemsLic(null)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[85vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                  <Info className="w-5 h-5 text-blue-600" />
+                  Productos de la Licitación
+                </h3>
+                <p className="text-sm text-slate-500 font-mono">{modalItemsLic}</p>
+              </div>
+              <button
+                onClick={() => setModalItemsLic(null)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto max-h-[calc(85vh-120px)]">
+              {cargandoItemsLic ? (
+                <div className="flex items-center justify-center py-12">
+                  <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
+                  <span className="ml-3 text-slate-600">Obteniendo productos...</span>
+                </div>
+              ) : itemsLicitacion[modalItemsLic]?.length > 0 ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-slate-500 pb-2 border-b border-slate-200 sticky top-0 bg-white">
+                    <div className="col-span-1">#</div>
+                    <div className="col-span-4">Producto</div>
+                    <div className="col-span-1 text-center">Cant.</div>
+                    <div className="col-span-3">Proveedor Adjudicado</div>
+                    <div className="col-span-1 text-right">Cant. Adj.</div>
+                    <div className="col-span-2 text-right">Monto Unit.</div>
+                  </div>
+                  {itemsLicitacion[modalItemsLic].map((item, idx) => (
+                    <div key={idx} className={`grid grid-cols-12 gap-2 text-sm py-3 border-b border-slate-100 ${item.adjudicado ? 'bg-green-50' : ''}`}>
+                      <div className="col-span-1 font-medium text-slate-400">{item.correlativo}</div>
+                      <div className="col-span-4">
+                        <p className="font-medium text-slate-900">{item.nombre_producto}</p>
+                        <p className="text-xs text-slate-500 mt-1 line-clamp-2">{item.descripcion}</p>
+                      </div>
+                      <div className="col-span-1 text-center font-medium">{item.cantidad} {item.unidad_medida}</div>
+                      <div className="col-span-3">
+                        {item.adjudicado ? (
+                          <span className="text-green-700 text-xs">{item.proveedor_nombre}</span>
+                        ) : (
+                          <span className="text-slate-400 text-xs">Sin adjudicar</span>
+                        )}
+                      </div>
+                      <div className="col-span-1 text-right">{item.adjudicado ? item.cantidad_adjudicada : '-'}</div>
+                      <div className="col-span-2 text-right font-semibold">
+                        {item.adjudicado ? formatearMonto(item.monto_unitario) : '-'}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  <div className="mt-4 pt-4 border-t border-slate-200 flex justify-between items-center">
+                    <span className="text-sm text-slate-600">
+                      Total: <strong>{itemsLicitacion[modalItemsLic].length}</strong> productos | 
+                      Adjudicados: <strong className="text-green-600">{itemsLicitacion[modalItemsLic].filter(i => i.adjudicado).length}</strong>
+                    </span>
+                    <span className="text-lg font-bold text-green-600">
+                      Total adjudicado: {formatearMonto(itemsLicitacion[modalItemsLic].filter(i => i.adjudicado).reduce((sum, i) => sum + (i.monto_unitario * i.cantidad_adjudicada), 0))}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-slate-500">
+                  <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>No se encontraron productos para esta licitación</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

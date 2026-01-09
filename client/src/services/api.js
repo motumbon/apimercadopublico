@@ -153,6 +153,25 @@ export async function actualizarItemsOC(codigoOC) {
   return data;
 }
 
+export async function obtenerItemsLicitacion(codigoLicitacion) {
+  const res = await fetch(`${API_BASE}/licitaciones/${encodeURIComponent(codigoLicitacion)}/items`, {
+    headers: authHeaders()
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error);
+  return data.items;
+}
+
+export async function actualizarItemsLicitacion(codigoLicitacion) {
+  const res = await fetch(`${API_BASE}/licitaciones/${encodeURIComponent(codigoLicitacion)}/actualizar-items`, {
+    method: 'POST',
+    headers: authHeaders()
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error);
+  return data;
+}
+
 export async function actualizarLicitacion(codigo) {
   const res = await fetch(`${API_BASE}/licitaciones/${encodeURIComponent(codigo)}/actualizar`, {
     method: 'POST',

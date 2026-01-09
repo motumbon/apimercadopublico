@@ -165,6 +165,29 @@ export async function initDatabase() {
   
   database.run(`CREATE INDEX IF NOT EXISTS idx_items_oc ON items_oc(oc_codigo)`);
   
+  // Tabla de items/productos de licitaciones
+  database.run(`
+    CREATE TABLE IF NOT EXISTS items_licitacion (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      licitacion_codigo TEXT NOT NULL,
+      correlativo INTEGER,
+      codigo_producto TEXT,
+      categoria TEXT,
+      nombre_producto TEXT,
+      descripcion TEXT,
+      unidad_medida TEXT,
+      cantidad REAL,
+      adjudicado INTEGER DEFAULT 0,
+      proveedor_rut TEXT,
+      proveedor_nombre TEXT,
+      cantidad_adjudicada REAL,
+      monto_unitario REAL,
+      FOREIGN KEY (licitacion_codigo) REFERENCES licitaciones(codigo)
+    )
+  `);
+  
+  database.run(`CREATE INDEX IF NOT EXISTS idx_items_licitacion ON items_licitacion(licitacion_codigo)`);
+  
   // Tabla de notificaciones
   database.run(`
     CREATE TABLE IF NOT EXISTS notificaciones (
@@ -288,6 +311,43 @@ export async function guardarItemsOC(ocCodigo, items) {
 export async function obtenerItemsOC(ocCodigo) {
   const database = await getDatabase();
   const result = database.exec(`SELECT * FROM items_oc WHERE oc_codigo = ? ORDER BY correlativo`, [ocCodigo]);
+  return resultToObjects(result);
+}
+
+export async function guardarItemsLicitacion(licitacionCodigo, items) {
+  const database = await getDatabase();
+  
+  // Eliminar items anteriores
+  database.run(`DELETE FROM items_licitacion WHERE licitacion_codigo = ?`, [licitacionCodigo]);
+  
+  for (const item of items) {
+    const adjudicacion = item.Adjudicacion || {};
+    database.run(`
+      INSERT INTO items_licitacion (licitacion_codigo, correlativo, codigo_producto, categoria, nombre_producto, descripcion, unidad_medida, cantidad, adjudicado, proveedor_rut, proveedor_nombre, cantidad_adjudicada, monto_unitario)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      licitacionCodigo,
+      item.Correlativo || 0,
+      item.CodigoProducto || '',
+      item.Categoria || '',
+      item.NombreProducto || '',
+      item.Descripcion || '',
+      item.UnidadMedida || '',
+      item.Cantidad || 0,
+      adjudicacion.RutProveedor ? 1 : 0,
+      adjudicacion.RutProveedor || '',
+      adjudicacion.NombreProveedor || '',
+      adjudicacion.Cantidad || 0,
+      adjudicacion.MontoUnitario || 0
+    ]);
+  }
+  
+  saveDatabase();
+}
+
+export async function obtenerItemsLicitacion(licitacionCodigo) {
+  const database = await getDatabase();
+  const result = database.exec(`SELECT * FROM items_licitacion WHERE licitacion_codigo = ? ORDER BY correlativo`, [licitacionCodigo]);
   return resultToObjects(result);
 }
 

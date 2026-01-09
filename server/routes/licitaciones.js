@@ -20,6 +20,8 @@ import {
   actualizarLicitacionInstitucion,
   actualizarDatosLicitacion,
   obtenerMontoOCLicitacion,
+  obtenerItemsLicitacion,
+  guardarItemsLicitacion,
   LINEAS
 } from '../db/database.js';
 
@@ -423,6 +425,41 @@ router.post('/sync/importar', async (req, res) => {
     });
   } catch (error) {
     console.error('[SYNC] Error importando:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Obtener items/productos de una licitación (desde BD)
+router.get('/:codigo/items', async (req, res) => {
+  try {
+    const { codigo } = req.params;
+    const items = await obtenerItemsLicitacion(codigo);
+    res.json({ success: true, items });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Actualizar items de licitación desde API
+router.post('/:codigo/actualizar-items', async (req, res) => {
+  try {
+    const { codigo } = req.params;
+    console.log('[API] Obteniendo items de licitación:', codigo);
+    
+    const licitacion = await buscarLicitacion(codigo);
+    if (!licitacion) {
+      return res.status(404).json({ success: false, error: 'Licitación no encontrada en Mercado Público' });
+    }
+    
+    if (licitacion.Items?.Listado && licitacion.Items.Listado.length > 0) {
+      await guardarItemsLicitacion(codigo, licitacion.Items.Listado);
+      const items = await obtenerItemsLicitacion(codigo);
+      console.log(`[API] Items guardados para licitación ${codigo}: ${items.length} items`);
+      res.json({ success: true, items, mensaje: `${items.length} items obtenidos` });
+    } else {
+      res.json({ success: true, items: [], mensaje: 'No se encontraron items para esta licitación' });
+    }
+  } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
