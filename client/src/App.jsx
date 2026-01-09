@@ -1642,27 +1642,39 @@ function App() {
                     <div className="col-span-1 text-right">Cant. Adj.</div>
                     <div className="col-span-2 text-right">Monto Unit.</div>
                   </div>
-                  {itemsLicitacion[modalItemsLic].map((item, idx) => (
-                    <div key={idx} className={`grid grid-cols-12 gap-2 text-sm py-3 border-b border-slate-100 ${item.adjudicado ? 'bg-green-50' : ''}`}>
-                      <div className="col-span-1 font-medium text-slate-400">{item.correlativo}</div>
-                      <div className="col-span-4">
-                        <p className="font-medium text-slate-900">{item.nombre_producto}</p>
-                        <p className="text-xs text-slate-500 mt-1 line-clamp-2">{item.descripcion}</p>
+                  {itemsLicitacion[modalItemsLic].map((item, idx) => {
+                    const esProveedorDestacado = item.proveedor_nombre && 
+                      (item.proveedor_nombre.toUpperCase().includes('RECETARIO MAGISTRAL') || 
+                       item.proveedor_nombre.toUpperCase().includes('FRESENIUS KABI'));
+                    const bgColor = item.adjudicado 
+                      ? (esProveedorDestacado ? 'bg-green-50' : 'bg-yellow-50') 
+                      : '';
+                    const textColor = item.adjudicado 
+                      ? (esProveedorDestacado ? 'text-green-700' : 'text-yellow-700') 
+                      : 'text-slate-400';
+                    
+                    return (
+                      <div key={idx} className={`grid grid-cols-12 gap-2 text-sm py-3 border-b border-slate-100 ${bgColor}`}>
+                        <div className="col-span-1 font-medium text-slate-400">{item.correlativo}</div>
+                        <div className="col-span-4">
+                          <p className="font-medium text-slate-900">{item.nombre_producto}</p>
+                          <p className="text-xs text-slate-500 mt-1 line-clamp-2">{item.descripcion}</p>
+                        </div>
+                        <div className="col-span-1 text-center font-medium">{item.cantidad} {item.unidad_medida}</div>
+                        <div className="col-span-3">
+                          {item.adjudicado ? (
+                            <span className={`${textColor} text-xs`}>{item.proveedor_nombre}</span>
+                          ) : (
+                            <span className="text-slate-400 text-xs">Sin adjudicar</span>
+                          )}
+                        </div>
+                        <div className="col-span-1 text-right">{item.adjudicado ? item.cantidad_adjudicada : '-'}</div>
+                        <div className="col-span-2 text-right font-semibold">
+                          {item.adjudicado ? formatearMonto(item.monto_unitario) : '-'}
+                        </div>
                       </div>
-                      <div className="col-span-1 text-center font-medium">{item.cantidad} {item.unidad_medida}</div>
-                      <div className="col-span-3">
-                        {item.adjudicado ? (
-                          <span className="text-green-700 text-xs">{item.proveedor_nombre}</span>
-                        ) : (
-                          <span className="text-slate-400 text-xs">Sin adjudicar</span>
-                        )}
-                      </div>
-                      <div className="col-span-1 text-right">{item.adjudicado ? item.cantidad_adjudicada : '-'}</div>
-                      <div className="col-span-2 text-right font-semibold">
-                        {item.adjudicado ? formatearMonto(item.monto_unitario) : '-'}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   
                   <div className="mt-4 pt-4 border-t border-slate-200 flex justify-between items-center">
                     <span className="text-sm text-slate-600">
