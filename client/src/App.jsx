@@ -97,6 +97,7 @@ function App() {
   // Filtros
   const [filtroInstitucion, setFiltroInstitucion] = useState('');
   const [filtroLinea, setFiltroLinea] = useState('');
+  const [filtroMesOC, setFiltroMesOC] = useState(''); // formato: 'YYYY-MM'
   const [ordenarPor, setOrdenarPor] = useState(''); // 'monto', 'saldo'
   
   // Edición de licitación (botón lápiz)
@@ -199,18 +200,24 @@ function App() {
       setInstituciones(insts);
       setLineas(lins);
       
-      // Cargar saldos y montos OC para todas las licitaciones
+      // Cargar saldos, montos OC y OC para todas las licitaciones
       const saldos = {};
       const montos = {};
+      const todasOC = {};
       for (const lic of lics) {
         try {
           const saldo = await obtenerSaldoLicitacion(lic.codigo);
           saldos[lic.codigo] = saldo;
           montos[lic.codigo] = saldo.montoOC;
+          
+          // Cargar OC de cada licitación para el filtro de mes
+          const data = await obtenerLicitacionConOrdenes(lic.codigo);
+          todasOC[lic.codigo] = data.ordenes || [];
         } catch (e) {}
       }
       setSaldosLicitaciones(saldos);
       setMontosOC(montos);
+      setOrdenesExpandidas(todasOC);
     } catch (err) {
       setError('Error al cargar datos: ' + err.message);
     } finally {
@@ -437,6 +444,19 @@ function App() {
     // Filtrar por línea
     if (filtroLinea) {
       resultado = resultado.filter(l => l.linea === filtroLinea);
+    }
+    
+    // Filtrar por mes de OC
+    if (filtroMesOC) {
+      resultado = resultado.filter(l => {
+        const ordenes = ordenesExpandidas[l.codigo] || [];
+        return ordenes.some(oc => {
+          const fechaOC = oc.fecha_envio || oc.fecha_aceptacion;
+          if (!fechaOC) return false;
+          const mesOC = fechaOC.substring(0, 7); // formato YYYY-MM
+          return mesOC === filtroMesOC;
+        });
+      });
     }
     
     // Ordenar
@@ -1127,9 +1147,29 @@ function App() {
               <option value="monto">Por monto licitación</option>
               <option value="saldo">Por saldo (menor primero)</option>
             </select>
-            {(filtroInstitucion || filtroLinea || ordenarPor) && (
+            <select
+              value={filtroMesOC}
+              onChange={(e) => setFiltroMesOC(e.target.value)}
+              className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg"
+            >
+              <option value="">Todos los meses</option>
+              <option value="2026-01">Enero 2026</option>
+              <option value="2025-12">Diciembre 2025</option>
+              <option value="2025-11">Noviembre 2025</option>
+              <option value="2025-10">Octubre 2025</option>
+              <option value="2025-09">Septiembre 2025</option>
+              <option value="2025-08">Agosto 2025</option>
+              <option value="2025-07">Julio 2025</option>
+              <option value="2025-06">Junio 2025</option>
+              <option value="2025-05">Mayo 2025</option>
+              <option value="2025-04">Abril 2025</option>
+              <option value="2025-03">Marzo 2025</option>
+              <option value="2025-02">Febrero 2025</option>
+              <option value="2025-01">Enero 2025</option>
+            </select>
+            {(filtroInstitucion || filtroLinea || ordenarPor || filtroMesOC) && (
               <button
-                onClick={() => { setFiltroInstitucion(''); setFiltroLinea(''); setOrdenarPor(''); }}
+                onClick={() => { setFiltroInstitucion(''); setFiltroLinea(''); setOrdenarPor(''); setFiltroMesOC(''); }}
                 className="px-2 py-1 text-xs text-slate-500 hover:text-slate-700"
               >
                 Limpiar
@@ -1154,7 +1194,7 @@ function App() {
           ) : licitacionesFiltradas.length === 0 ? (
             <div className="p-12 text-center text-slate-500">
               <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>No hay licitaciones {(filtroInstitucion || filtroLinea) ? 'con estos filtros' : 'almacenadas'}</p>
+              <p>No hay licitaciones {(filtroInstitucion || filtroLinea || filtroMesOC) ? 'con estos filtros' : 'almacenadas'}</p>
               <p className="text-sm mt-2">Agrega una licitación usando el formulario de arriba</p>
             </div>
           ) : (
