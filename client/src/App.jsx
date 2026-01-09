@@ -1153,19 +1153,20 @@ function App() {
               className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg"
             >
               <option value="">Todos los meses</option>
-              <option value="2026-01">Enero 2026</option>
-              <option value="2025-12">Diciembre 2025</option>
-              <option value="2025-11">Noviembre 2025</option>
-              <option value="2025-10">Octubre 2025</option>
-              <option value="2025-09">Septiembre 2025</option>
-              <option value="2025-08">Agosto 2025</option>
-              <option value="2025-07">Julio 2025</option>
-              <option value="2025-06">Junio 2025</option>
-              <option value="2025-05">Mayo 2025</option>
-              <option value="2025-04">Abril 2025</option>
-              <option value="2025-03">Marzo 2025</option>
-              <option value="2025-02">Febrero 2025</option>
-              <option value="2025-01">Enero 2025</option>
+              {(() => {
+                const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                               'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+                const opciones = [];
+                const hoy = new Date();
+                // Generar 24 meses: 12 hacia adelante y 12 hacia atrás desde hoy
+                for (let i = 12; i >= -12; i--) {
+                  const fecha = new Date(hoy.getFullYear(), hoy.getMonth() + i, 1);
+                  const valor = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
+                  const texto = `${meses[fecha.getMonth()]} ${fecha.getFullYear()}`;
+                  opciones.push(<option key={valor} value={valor}>{texto}</option>);
+                }
+                return opciones;
+              })()}
             </select>
             {(filtroInstitucion || filtroLinea || ordenarPor || filtroMesOC) && (
               <button
