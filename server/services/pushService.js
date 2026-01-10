@@ -52,11 +52,22 @@ export async function enviarNotificacionPush(titulo, mensaje, data = {}) {
         });
         
         const result = await response.json();
+        console.log('[PUSH] Respuesta Expo:', JSON.stringify(result));
         
         if (result.data) {
           const successCount = result.data.filter(r => r.status === 'ok').length;
           totalSent += successCount;
           console.log(`[PUSH] Lote enviado: ${successCount}/${chunk.length} exitosos`);
+          
+          // Log errores específicos
+          result.data.forEach((r, i) => {
+            if (r.status !== 'ok') {
+              console.log(`[PUSH] Error en token ${i}: ${r.status} - ${r.message || 'Sin mensaje'}`);
+              if (r.details) {
+                console.log(`[PUSH] Detalles: ${JSON.stringify(r.details)}`);
+              }
+            }
+          });
         }
       } catch (error) {
         console.error('[PUSH] Error enviando lote:', error.message);

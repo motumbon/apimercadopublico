@@ -21,8 +21,13 @@ class PushNotificationService {
 
   async registerForPushNotifications() {
     let token;
+    
+    console.log('[PUSH] Iniciando registro de notificaciones push...');
+    console.log('[PUSH] Es dispositivo físico:', Device.isDevice);
+    console.log('[PUSH] Plataforma:', Platform.OS);
 
     if (Platform.OS === 'android') {
+      console.log('[PUSH] Configurando canal de notificaciones Android...');
       await Notifications.setNotificationChannelAsync('default', {
         name: 'default',
         importance: Notifications.AndroidImportance.MAX,
@@ -32,60 +37,83 @@ class PushNotificationService {
     }
 
     if (Device.isDevice) {
+      console.log('[PUSH] Verificando permisos...');
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
+      console.log('[PUSH] Estado de permisos existente:', existingStatus);
       
       if (existingStatus !== 'granted') {
+        console.log('[PUSH] Solicitando permisos...');
         const { status } = await Notifications.requestPermissionsAsync();
         finalStatus = status;
+        console.log('[PUSH] Nuevo estado de permisos:', status);
       }
       
       if (finalStatus !== 'granted') {
-        console.log('⚠️ Permisos de notificación no otorgados');
+        console.log('⚠️ [PUSH] Permisos de notificación NO otorgados');
         return null;
       }
 
+      console.log('[PUSH] Permisos OK, obteniendo token...');
+      
       try {
-        const projectId = Constants.expoConfig?.extra?.eas?.projectId || 
-                         Constants.easConfig?.projectId;
+        // Usar projectId hardcodeado para asegurar que funcione
+        const projectId = '4c0421e4-574a-4efd-9d5d-595c9c00a1e6';
+        console.log('[PUSH] Usando projectId:', projectId);
         
-        token = (await Notifications.getExpoPushTokenAsync({
+        const tokenResponse = await Notifications.getExpoPushTokenAsync({
           projectId: projectId
-        })).data;
+        });
         
-        console.log('📱 Expo Push Token:', token);
+        token = tokenResponse.data;
+        console.log('📱 [PUSH] Expo Push Token obtenido:', token);
         this.expoPushToken = token;
         
         // Guardar token localmente
         await SecureStore.setItemAsync('expoPushToken', token);
+        console.log('[PUSH] Token guardado localmente');
         
       } catch (error) {
-        console.error('Error obteniendo push token:', error);
+        console.error('[PUSH] Error obteniendo push token:', error.message);
+        console.error('[PUSH] Error completo:', JSON.stringify(error));
       }
     } else {
-      console.log('⚠️ Las notificaciones push requieren un dispositivo físico');
+      console.log('⚠️ [PUSH] Las notificaciones push requieren un dispositivo físico');
     }
 
     return token;
   }
 
   async registerTokenWithServer() {
+    console.log('[PUSH] Iniciando registro de token en servidor...');
+    
     if (!this.expoPushToken) {
+      console.log('[PUSH] No hay token, obteniendo uno nuevo...');
       await this.registerForPushNotifications();
     }
 
     if (this.expoPushToken) {
+      console.log('[PUSH] Token disponible, registrando en servidor...');
+      console.log('[PUSH] Token a registrar:', this.expoPushToken.substring(0, 40) + '...');
+      
       try {
-        await api.post('/push-tokens/register', {
+        const response = await api.post('/push-tokens/register', {
           token: this.expoPushToken,
           platform: Platform.OS
         });
-        console.log('✅ Token registrado en servidor');
+        console.log('✅ [PUSH] Token registrado en servidor exitosamente');
+        console.log('[PUSH] Respuesta servidor:', JSON.stringify(response.data));
         return true;
       } catch (error) {
-        console.error('Error registrando token en servidor:', error);
+        console.error('[PUSH] Error registrando token en servidor:', error.message);
+        if (error.response) {
+          console.error('[PUSH] Status:', error.response.status);
+          console.error('[PUSH] Data:', JSON.stringify(error.response.data));
+        }
         return false;
       }
+    } else {
+      console.log('[PUSH] No se pudo obtener token push');
     }
     return false;
   }

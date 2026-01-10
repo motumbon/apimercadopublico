@@ -23,6 +23,17 @@ export const AuthProvider = ({ children }) => {
       
       if (token && userStr) {
         setUser(JSON.parse(userStr));
+        
+        // Registrar token push al restaurar sesión
+        console.log('[AUTH] Sesión restaurada, registrando token push...');
+        setTimeout(async () => {
+          try {
+            await pushNotifications.registerForPushNotifications();
+            await pushNotifications.registerTokenWithServer();
+          } catch (e) {
+            console.error('[AUTH] Error registrando push en checkAuth:', e);
+          }
+        }, 2000);
       }
     } catch (e) {
       console.log('Error checking auth:', e);
@@ -43,10 +54,16 @@ export const AuthProvider = ({ children }) => {
       setUser(usuario);
       
       // Registrar token push después del login
+      console.log('[AUTH] Login exitoso, registrando token push...');
       setTimeout(async () => {
-        await pushNotifications.registerForPushNotifications();
-        await pushNotifications.registerTokenWithServer();
-      }, 1000);
+        try {
+          await pushNotifications.registerForPushNotifications();
+          await pushNotifications.registerTokenWithServer();
+          console.log('[AUTH] Registro de push completado después de login');
+        } catch (e) {
+          console.error('[AUTH] Error registrando push después de login:', e);
+        }
+      }, 2000);
       
       return { success: true };
     } catch (e) {

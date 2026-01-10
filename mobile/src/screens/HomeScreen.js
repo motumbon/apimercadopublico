@@ -7,12 +7,16 @@ import {
   RefreshControl,
   TouchableOpacity,
   ActivityIndicator,
-  Platform
+  Platform,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import { formatearMonto } from '../config/api';
+import pushNotifications from '../services/pushNotifications';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
 
 const COLORS = {
   primary: '#1e40af',
@@ -58,6 +62,94 @@ export default function HomeScreen({ navigation }) {
     .filter(l => (ordenesPorLicitacion[l.codigo] || []).length > 0)
     .slice(0, 5);
 
+  // Función de diagnóstico DETALLADA para probar registro de push
+  const testPushRegistration = async () => {
+    let diagnosticLog = '';
+    
+    try {
+      // Paso 1: Verificar dispositivo
+      diagnosticLog += `1. Device.isDevice: ${Device.isDevice}\n`;
+      diagnosticLog += `   Platform: ${Platform.OS}\n`;
+      diagnosticLog += `   Brand: ${Device.brand || 'N/A'}\n`;
+      diagnosticLog += `   Model: ${Device.modelName || 'N/A'}\n\n`;
+      
+      if (!Device.isDevice) {
+        Alert.alert('❌ Error Paso 1', `No es dispositivo físico.\n\n${diagnosticLog}`);
+        return;
+      }
+      
+      // Paso 2: Verificar permisos
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      diagnosticLog += `2. Permisos existentes: ${existingStatus}\n`;
+      
+      let finalStatus = existingStatus;
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+        diagnosticLog += `   Permisos solicitados: ${status}\n`;
+      }
+      diagnosticLog += `   Permisos finales: ${finalStatus}\n\n`;
+      
+      if (finalStatus !== 'granted') {
+        Alert.alert('❌ Error Paso 2', `Permisos no otorgados.\n\n${diagnosticLog}`);
+        return;
+      }
+      
+      // Paso 3: Configurar canal Android
+      if (Platform.OS === 'android') {
+        try {
+          await Notifications.setNotificationChannelAsync('default', {
+            name: 'default',
+            importance: Notifications.AndroidImportance.MAX,
+          });
+          diagnosticLog += `3. Canal Android: OK\n\n`;
+        } catch (e) {
+          diagnosticLog += `3. Canal Android ERROR: ${e.message}\n\n`;
+        }
+      }
+      
+      // Paso 4: Obtener token
+      diagnosticLog += `4. Obteniendo token...\n`;
+      const projectId = '4c0421e4-574a-4efd-9d5d-595c9c00a1e6';
+      diagnosticLog += `   ProjectId: ${projectId}\n`;
+      
+      try {
+        const tokenResponse = await Notifications.getExpoPushTokenAsync({
+          projectId: projectId
+        });
+        
+        const token = tokenResponse.data;
+        diagnosticLog += `   Token: ${token ? token.substring(0, 40) + '...' : 'NULL'}\n\n`;
+        
+        if (!token) {
+          Alert.alert('❌ Error Paso 4', `Token es null.\n\n${diagnosticLog}`);
+          return;
+        }
+        
+        // Paso 5: Registrar en servidor
+        diagnosticLog += `5. Registrando en servidor...\n`;
+        pushNotifications.expoPushToken = token;
+        
+        const registered = await pushNotifications.registerTokenWithServer();
+        diagnosticLog += `   Resultado: ${registered ? 'OK' : 'FALLÓ'}\n`;
+        
+        if (registered) {
+          Alert.alert('✅ ÉXITO COMPLETO', `Token registrado correctamente.\n\n${diagnosticLog}`);
+        } else {
+          Alert.alert('❌ Error Paso 5', `No se pudo registrar en servidor.\n\n${diagnosticLog}`);
+        }
+        
+      } catch (tokenError) {
+        diagnosticLog += `   ERROR: ${tokenError.message}\n`;
+        diagnosticLog += `   Code: ${tokenError.code || 'N/A'}\n`;
+        Alert.alert('❌ Error Paso 4', `Error obteniendo token:\n${tokenError.message}\n\n${diagnosticLog}`);
+      }
+      
+    } catch (error) {
+      Alert.alert('❌ Error General', `${error.message}\n\n${diagnosticLog}`);
+    }
+  };
+
   if (loading && !refreshing) {
     return (
       <View style={styles.loadingContainer}>
@@ -100,6 +192,15 @@ export default function HomeScreen({ navigation }) {
         <Text style={styles.welcomeSubtext}>
           Seguimiento de licitaciones y órdenes de compra
         </Text>
+        
+        {/* Botón de diagnóstico push - temporal */}
+        <TouchableOpacity 
+          style={styles.diagButton}
+          onPress={testPushRegistration}
+        >
+          <Ionicons name="bug-outline" size={16} color={COLORS.white} />
+          <Text style={styles.diagButtonText}>Probar Push</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Tarjetas de estadísticas */}
@@ -244,6 +345,22 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.7)',
     fontSize: 14,
     marginTop: 10
+  },
+  diagButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    gap: 6
+  },
+  diagButtonText: {
+    color: COLORS.white,
+    fontSize: 13,
+    fontWeight: '500'
   },
   notifButton: {
     padding: 8,

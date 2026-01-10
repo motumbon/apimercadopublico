@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "737825461488",
+    "project_id": "seguimiento-oc",
+    "storage_bucket": "seguimiento-oc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:737825461488:android:09132af5ac2ea62e4f1e35",
+        "android_client_info": {
+          "package_name": "com.seguimientooc.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDfqv1XXCaXa8pUNHduSEtfRi-XdKR1tCk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

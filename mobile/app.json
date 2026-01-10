@@ -18,6 +18,7 @@
     },
     "android": {
       "package": "com.seguimientooc.app",
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "INTERNET",
         "POST_NOTIFICATIONS"
