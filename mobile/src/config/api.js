@@ -20,9 +20,13 @@ const api = axios.create({
 // Interceptor para agregar el token
 api.interceptors.request.use(
   async (config) => {
-    const token = await SecureStore.getItemAsync('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    try {
+      const token = await SecureStore.getItemAsync('token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } catch (e) {
+      console.log('⚠️ Error obteniendo token:', e.message);
     }
     return config;
   },
@@ -33,8 +37,17 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    console.log('❌ Error API:', error.code, error.message);
+    
     if (!error.response) {
-      error.message = 'No se pudo conectar al servidor. Verifica tu conexión.';
+      // Error de red - puede ser timeout, DNS, etc.
+      if (error.code === 'ECONNABORTED') {
+        error.message = 'Tiempo de espera agotado. Intenta de nuevo.';
+      } else if (error.code === 'ERR_NETWORK') {
+        error.message = 'Error de red. Verifica tu conexión a internet.';
+      } else {
+        error.message = 'No se pudo conectar al servidor. Intenta de nuevo.';
+      }
     }
     if (error.response?.status === 401 || error.response?.status === 403) {
       await SecureStore.deleteItemAsync('token');
@@ -61,8 +74,8 @@ export const licitacionesAPI = {
   getSaldo: (codigo) => api.get(`/licitaciones/${codigo}/saldo`),
   getItems: (codigo) => api.get(`/licitaciones/${codigo}/items`),
   actualizarItems: (codigo) => api.post(`/licitaciones/${codigo}/actualizar-items`),
-  asignar: (codigo, institucionId, linea) => api.put(`/licitaciones/${codigo}/asignar`, { institucion_id: institucionId, linea }),
-  actualizarDatos: (codigo, montoTotal, fechaVencimiento) => api.put(`/licitaciones/${codigo}/datos`, { monto_total_licitacion: montoTotal, fecha_vencimiento: fechaVencimiento }),
+  asignar: (codigo, institucionId, linea) => api.put(`/licitaciones/${codigo}/asignar`, { institucionId, linea }),
+  actualizarDatos: (codigo, montoTotal, fechaVencimiento) => api.put(`/licitaciones/${codigo}/datos`, { montoTotalLicitacion: montoTotal, fechaVencimiento }),
   getEstadisticas: () => api.get('/licitaciones/estadisticas')
 };
 
@@ -86,11 +99,11 @@ export const institucionesAPI = {
 // Notificaciones API
 export const notificacionesAPI = {
   getAll: () => api.get('/notificaciones'),
-  getNoLeidas: () => api.get('/notificaciones/no-leidas/count'),
-  marcarLeida: (id) => api.put(`/notificaciones/${id}/leer`),
-  marcarTodasLeidas: () => api.put('/notificaciones/leer-todas'),
+  getNoLeidas: () => api.get('/notificaciones/contador'),
+  marcarLeida: (id) => api.put(`/notificaciones/${id}/leida`),
+  marcarTodasLeidas: () => api.put('/notificaciones/marcar-todas-leidas'),
   eliminar: (id) => api.delete(`/notificaciones/${id}`),
-  eliminarTodas: () => api.delete('/notificaciones/todas')
+  eliminarTodas: () => api.delete('/notificaciones')
 };
 
 // Formatear monto

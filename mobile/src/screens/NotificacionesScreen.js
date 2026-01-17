@@ -25,8 +25,8 @@ const COLORS = {
   border: '#e2e8f0'
 };
 
-export default function NotificacionesScreen() {
-  const { notificaciones, cargarNotificaciones, refreshing } = useData();
+export default function NotificacionesScreen({ navigation }) {
+  const { notificaciones, cargarNotificaciones, refreshing, licitaciones } = useData();
 
   const formatearTiempo = (fecha) => {
     const ahora = new Date();
@@ -43,6 +43,24 @@ export default function NotificacionesScreen() {
     if (dias < 7) return `Hace ${dias}d`;
     
     return notif.toLocaleDateString('es-CL');
+  };
+
+  const handleNotificacionPress = async (item) => {
+    try {
+      // Marcar como leída
+      await notificacionesAPI.marcarLeida(item.id);
+      cargarNotificaciones();
+      
+      // Navegar a la licitación si hay código
+      if (item.licitacion_codigo) {
+        const licitacion = licitaciones.find(l => l.codigo === item.licitacion_codigo);
+        if (licitacion) {
+          navigation.navigate('LicitacionDetalle', { licitacion });
+        }
+      }
+    } catch (e) {
+      console.log('Error:', e.message);
+    }
   };
 
   const handleMarcarLeida = async (id) => {
@@ -103,7 +121,7 @@ export default function NotificacionesScreen() {
     return (
       <TouchableOpacity
         style={[styles.notifCard, !item.leida && styles.notifNoLeida]}
-        onPress={() => handleMarcarLeida(item.id)}
+        onPress={() => handleNotificacionPress(item)}
         activeOpacity={0.7}
       >
         <View style={[styles.iconContainer, { backgroundColor: `${icono.color}20` }]}>

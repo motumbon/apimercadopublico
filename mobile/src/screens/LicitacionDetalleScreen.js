@@ -10,7 +10,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Linking,
-  Platform
+  Platform,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
@@ -33,7 +34,7 @@ const COLORS = {
 const PROVEEDORES_DESTACADOS = ['RECETARIO MAGISTRAL', 'FRESENIUS KABI'];
 
 export default function LicitacionDetalleScreen({ route, navigation }) {
-  const { licitacion } = route.params;
+  const { licitacion: licitacionInicial } = route.params;
   const {
     instituciones,
     lineas,
@@ -42,22 +43,35 @@ export default function LicitacionDetalleScreen({ route, navigation }) {
     cargarDatos,
     asignarLicitacion,
     actualizarDatosLicitacion,
+    eliminarLicitacion,
     obtenerItemsLicitacion,
     obtenerItemsOC,
-    actualizarItemsOC
+    actualizarItemsOC,
+    getLicitacion
   } = useData();
+
+  // Obtener datos actualizados del contexto (se actualiza inmediatamente)
+  const licitacion = getLicitacion(licitacionInicial.codigo) || licitacionInicial;
 
   const [refreshing, setRefreshing] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showItemsModal, setShowItemsModal] = useState(false);
   const [showOCItemsModal, setShowOCItemsModal] = useState(false);
   
-  // Edición
+  // Edición - usar useEffect para actualizar cuando cambia la licitación
   const [institucionEdit, setInstitucionEdit] = useState(String(licitacion.institucion_id || ''));
   const [lineaEdit, setLineaEdit] = useState(licitacion.linea || '');
   const [montoEdit, setMontoEdit] = useState(String(licitacion.monto_total_licitacion || ''));
   const [fechaEdit, setFechaEdit] = useState(licitacion.fecha_vencimiento || '');
   const [guardando, setGuardando] = useState(false);
+  
+  // Actualizar campos del formulario cuando cambia la licitación
+  useEffect(() => {
+    setInstitucionEdit(String(licitacion.institucion_id || ''));
+    setLineaEdit(licitacion.linea || '');
+    setMontoEdit(String(licitacion.monto_total_licitacion || ''));
+    setFechaEdit(licitacion.fecha_vencimiento || '');
+  }, [licitacion]);
   
   // Items
   const [itemsLicitacion, setItemsLicitacion] = useState([]);
@@ -120,6 +134,32 @@ export default function LicitacionDetalleScreen({ route, navigation }) {
     Linking.openURL(`https://www.mercadopublico.cl/Procurement/Modules/RFB/DetailsAcquisition.aspx?qs=kCw31V4M1mOLpHKCsYxrxw==&IdLicitacion=${licitacion.codigo}`);
   };
 
+  const abrirOCEnNavegador = (codigoOC) => {
+    Linking.openURL(`https://www.mercadopublico.cl/PurchaseOrder/Modules/PO/DetailsPurchaseOrder.aspx?codigoOC=${codigoOC}`);
+  };
+
+  const handleEliminar = () => {
+    Alert.alert(
+      'Eliminar Licitación',
+      `¿Estás seguro de eliminar la licitación ${licitacion.codigo}?\n\nEsta acción no se puede deshacer.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            const result = await eliminarLicitacion(licitacion.codigo);
+            if (result.success) {
+              navigation.goBack();
+            } else {
+              Alert.alert('Error', result.error || 'No se pudo eliminar la licitación');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const getEstadoOCColor = (estado) => {
     if (estado?.includes('Aceptada')) return { bg: '#dcfce7', text: '#16a34a' };
     if (estado?.includes('Enviada')) return { bg: '#dbeafe', text: '#1e40af' };
@@ -164,6 +204,10 @@ export default function LicitacionDetalleScreen({ route, navigation }) {
           <TouchableOpacity style={styles.actionButton} onPress={abrirEnMercadoPublico}>
             <Ionicons name="open-outline" size={18} color={COLORS.primary} />
             <Text style={styles.actionText}>Web</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.actionButton, styles.deleteButton]} onPress={handleEliminar}>
+            <Ionicons name="trash" size={18} color={COLORS.danger} />
+            <Text style={[styles.actionText, { color: COLORS.danger }]}>Eliminar</Text>
           </TouchableOpacity>
         </View>
 
@@ -221,6 +265,8 @@ export default function LicitacionDetalleScreen({ route, navigation }) {
                   key={oc.codigo} 
                   style={styles.ocCard}
                   onPress={() => handleVerItemsOC(oc)}
+                  onLongPress={() => abrirOCEnNavegador(oc.codigo)}
+                  delayLongPress={500}
                 >
                   <View style={styles.ocHeader}>
                     <Text style={styles.ocCodigo}>{oc.codigo}</Text>
@@ -406,6 +452,9 @@ export default function LicitacionDetalleScreen({ route, navigation }) {
                     {item.especificacion_comprador && (
                       <Text style={styles.itemDescripcion} numberOfLines={2}>{item.especificacion_comprador}</Text>
                     )}
+                    {item.especificacion_proveedor && (
+                      <Text style={styles.itemProveedor} numberOfLines={2}>📦 {item.especificacion_proveedor}</Text>
+                    )}
                     <View style={styles.itemFooter}>
                       <Text style={styles.itemPrecio}>Precio: {formatearMonto(item.precio_neto)}</Text>
                       <Text style={styles.itemTotal}>Total: {formatearMonto(item.total)}</Text>
@@ -489,6 +538,9 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: '600',
     fontSize: 13
+  },
+  deleteButton: {
+    backgroundColor: '#fee2e2'
   },
   infoCard: {
     flexDirection: 'row',

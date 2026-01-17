@@ -1557,9 +1557,12 @@ function App() {
                                           <div key={idx} className="grid grid-cols-12 gap-2 text-sm py-2 border-b border-slate-100 last:border-0">
                                             <div className="col-span-1 font-medium">{item.cantidad}</div>
                                             <div className="col-span-6">
-                                              <p className="font-medium text-slate-900">{item.especificacion_proveedor || item.producto}</p>
+                                              <p className="font-medium text-slate-900">{item.producto}</p>
                                               {item.especificacion_comprador && (
                                                 <p className="text-xs text-slate-500 mt-0.5">{item.especificacion_comprador}</p>
+                                              )}
+                                              {item.especificacion_proveedor && (
+                                                <p className="text-xs text-amber-600 mt-0.5 font-medium">📦 {item.especificacion_proveedor}</p>
                                               )}
                                             </div>
                                             <div className="col-span-2 text-right text-slate-600">{formatearMonto(item.precio_neto)}</div>

@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 import { AuthProvider } from './src/contexts/AuthContext';
+import { ToastProvider } from './src/contexts/ToastContext';
 import { DataProvider } from './src/contexts/DataContext';
 import AppNavigator from './src/navigation/AppNavigator';
 
@@ -15,6 +16,9 @@ Notifications.setNotificationHandler({
     shouldSetBadge: true,
   }),
 });
+
+// Referencia global para navegación desde notificaciones
+export const navigationRef = React.createRef();
 
 export default function App() {
   const notificationListener = useRef();
@@ -29,6 +33,15 @@ export default function App() {
     // Listener para cuando el usuario toca una notificación
     responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
       console.log('👆 Notificación tocada:', response);
+      
+      // Navegar a la pestaña de notificaciones cuando se toca una notificación push
+      const data = response.notification.request.content.data;
+      console.log('📦 Datos de notificación:', data);
+      
+      if (navigationRef.current) {
+        // Navegar a la pestaña de notificaciones
+        navigationRef.current.navigate('Notificaciones');
+      }
     });
 
     return () => {
@@ -39,12 +52,14 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <DataProvider>
-        <NavigationContainer>
-          <StatusBar style="light" />
-          <AppNavigator />
-        </NavigationContainer>
-      </DataProvider>
+      <ToastProvider>
+        <DataProvider>
+          <NavigationContainer ref={navigationRef}>
+            <StatusBar style="light" />
+            <AppNavigator />
+          </NavigationContainer>
+        </DataProvider>
+      </ToastProvider>
     </AuthProvider>
   );
 }
