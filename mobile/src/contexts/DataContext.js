@@ -388,6 +388,22 @@ export const DataProvider = ({ children }) => {
   const actualizarItemsOC = async (codigo) => {
     try {
       const res = await ordenesAPI.actualizarItems(codigo);
+      
+      // Si la respuesta incluye el nuevo estado, actualizar en el estado local
+      if (res.data.estado) {
+        setOrdenesPorLicitacion(prev => {
+          const updated = { ...prev };
+          for (const licitacionCodigo in updated) {
+            updated[licitacionCodigo] = updated[licitacionCodigo].map(oc => 
+              oc.codigo === codigo 
+                ? { ...oc, estado: res.data.estado } 
+                : oc
+            );
+          }
+          return updated;
+        });
+      }
+      
       return res.data.items || [];
     } catch (e) {
       return [];

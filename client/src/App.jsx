@@ -636,7 +636,23 @@ function App() {
     try {
       const resultado = await actualizarItemsOC(codigoOC);
       setItemsExpandidos(prev => ({ ...prev, [codigoOC]: resultado.items }));
-      setMensaje(`Items actualizados: ${resultado.items.length} productos`);
+      
+      // Si la respuesta incluye el nuevo estado, actualizar en el estado local
+      if (resultado.estado) {
+        setOrdenesExpandidas(prev => {
+          const updated = { ...prev };
+          for (const licitacionCodigo in updated) {
+            updated[licitacionCodigo] = updated[licitacionCodigo].map(oc => 
+              oc.codigo === codigoOC 
+                ? { ...oc, estado: resultado.estado } 
+                : oc
+            );
+          }
+          return updated;
+        });
+      }
+      
+      setMensaje(`OC actualizada: ${resultado.estado || 'OK'} - ${resultado.items.length} productos`);
       setOcExpandida(codigoOC); // Expandir para mostrar items
     } catch (err) {
       setError('Error al actualizar items: ' + err.message);

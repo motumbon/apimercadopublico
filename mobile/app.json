@@ -2,7 +2,7 @@
   "expo": {
     "name": "Seguimiento OC",
     "slug": "seguimiento-oc",
-    "version": "1.7.0",
+    "version": "1.8.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
