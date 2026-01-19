@@ -257,6 +257,8 @@ export async function initDatabase() {
 export async function guardarLicitacion(licitacion, userId) {
   const database = await getDatabase();
   
+  // Usar COALESCE para preservar datos existentes (institucion_id, linea, monto_total_licitacion, fecha_vencimiento)
+  // Solo se actualizan los datos básicos de la licitación, no los datos manuales del usuario
   database.run(`
     INSERT INTO licitaciones (codigo, nombre, estado, estado_codigo, fecha_cierre, organismo, monto_estimado, user_id, ultima_actualizacion)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
@@ -267,7 +269,11 @@ export async function guardarLicitacion(licitacion, userId) {
       fecha_cierre = excluded.fecha_cierre,
       organismo = excluded.organismo,
       monto_estimado = excluded.monto_estimado,
-      ultima_actualizacion = datetime('now')
+      ultima_actualizacion = datetime('now'),
+      institucion_id = COALESCE(licitaciones.institucion_id, excluded.institucion_id),
+      linea = COALESCE(licitaciones.linea, excluded.linea),
+      monto_total_licitacion = COALESCE(licitaciones.monto_total_licitacion, excluded.monto_total_licitacion),
+      fecha_vencimiento = COALESCE(licitaciones.fecha_vencimiento, excluded.fecha_vencimiento)
   `, [licitacion.codigo, licitacion.nombre, licitacion.estado, licitacion.estado_codigo, licitacion.fecha_cierre, licitacion.organismo, licitacion.monto_estimado, userId]);
   
   saveDatabase();
