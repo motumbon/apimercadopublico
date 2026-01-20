@@ -100,6 +100,9 @@ router.post('/sync/importar', async (req, res) => {
       const { licitacion, ordenes } = item;
       
       if (licitacion) {
+        // Primero verificar si ya existe la licitación para preservar datos
+        const existente = await obtenerLicitacionPorCodigo(licitacion.codigo, req.userId);
+        
         await guardarLicitacion({
           codigo: licitacion.codigo,
           nombre: licitacion.nombre,
@@ -111,9 +114,18 @@ router.post('/sync/importar', async (req, res) => {
         }, req.userId);
         licitacionesImportadas++;
         
-        if (licitacion.institucion_id || licitacion.linea || licitacion.monto_total_licitacion) {
-          await actualizarLicitacionInstitucion(licitacion.codigo, licitacion.institucion_id, licitacion.linea, req.userId);
-          await actualizarDatosLicitacion(licitacion.codigo, licitacion.monto_total_licitacion, licitacion.fecha_vencimiento, req.userId);
+        // SOLO actualizar datos manuales si vienen del servidor local Y no existen ya en Railway
+        // Si ya existen datos en Railway, NO sobrescribir
+        if (licitacion.institucion_id && !existente?.institucion_id) {
+          await actualizarLicitacionInstitucion(licitacion.codigo, licitacion.institucion_id, licitacion.linea || existente?.linea, req.userId);
+        } else if (licitacion.linea && !existente?.linea) {
+          await actualizarLicitacionInstitucion(licitacion.codigo, existente?.institucion_id, licitacion.linea, req.userId);
+        }
+        
+        if (licitacion.monto_total_licitacion && !existente?.monto_total_licitacion) {
+          await actualizarDatosLicitacion(licitacion.codigo, licitacion.monto_total_licitacion, licitacion.fecha_vencimiento || existente?.fecha_vencimiento, req.userId);
+        } else if (licitacion.fecha_vencimiento && !existente?.fecha_vencimiento) {
+          await actualizarDatosLicitacion(licitacion.codigo, existente?.monto_total_licitacion, licitacion.fecha_vencimiento, req.userId);
         }
       }
       
