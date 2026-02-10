@@ -25,7 +25,7 @@ const apiClient = axios.create({
   }
 });
 
-async function httpsGet(url, retries = 3) {
+async function httpsGet(url, retries = 5) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       console.log(`[API] Conectando... (intento ${attempt})`);
@@ -40,8 +40,9 @@ async function httpsGet(url, retries = 3) {
       console.log(`[API] Respuesta recibida OK`);
       return data;
     } catch (error) {
+      const statusCode = error.response?.status;
       const errorMsg = error.response?.data?.message || error.message || 'Error desconocido';
-      console.log(`[API] Error intento ${attempt}: ${errorMsg}`);
+      console.log(`[API] Error intento ${attempt}: ${statusCode || ''} ${errorMsg}`);
       
       if (error.rateLimited && attempt < retries) {
         console.log(`[API] Rate limited, esperando ${attempt * 5} segundos...`);
@@ -49,18 +50,30 @@ async function httpsGet(url, retries = 3) {
         continue;
       }
       
+      // Error 503: servicio no disponible temporalmente - esperar más tiempo
+      if (statusCode === 503 && attempt < retries) {
+        const waitTime = attempt * 10000; // 10s, 20s, 30s, 40s
+        console.log(`[API] Servicio no disponible (503), esperando ${waitTime/1000}s...`);
+        await sleep(waitTime);
+        continue;
+      }
+      
       if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
         if (attempt < retries) {
-          console.log(`[API] Timeout, reintentando en 3s...`);
-          await sleep(3000);
+          console.log(`[API] Timeout, reintentando en 5s...`);
+          await sleep(5000);
           continue;
         }
         throw new Error('La API de Mercado Público no responde. Intenta de nuevo en unos minutos.');
       }
       
       if (attempt < retries) {
-        await sleep(2000);
+        await sleep(3000);
         continue;
+      }
+      
+      if (statusCode === 503) {
+        throw new Error('La API de Mercado Público no está disponible en este momento (503). Intenta de nuevo más tarde.');
       }
       
       throw new Error(errorMsg);
