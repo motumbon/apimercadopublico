@@ -61,7 +61,8 @@ import {
   obtenerItemsOC,
   actualizarItemsOC,
   obtenerItemsLicitacion,
-  actualizarItemsLicitacion
+  actualizarItemsLicitacion,
+  setOnTokenExpired
 } from './services/api';
 
 function App() {
@@ -133,6 +134,13 @@ function App() {
 
   // Verificar si hay usuario guardado al cargar
   useEffect(() => {
+    // Registrar callback para logout automático cuando el token expira
+    setOnTokenExpired(() => {
+      setUsuario(null);
+      setLicitaciones([]);
+      setVistaAuth('login');
+    });
+    
     const storedUser = getStoredUser();
     if (storedUser) {
       setUsuario(storedUser);
